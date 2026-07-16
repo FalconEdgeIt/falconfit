@@ -3,89 +3,157 @@
 import { useState, useEffect } from "react";
 import Navigation from "../../components/Navigation";
 
-type Exercise = {
-  name: string;
-  lastWeight: number;
-  lastReps: number;
-  lastSets: number;
-};
-
-const pushDayExercises: Exercise[] = [
-  { name: "Bench Press", lastWeight: 95, lastReps: 12, lastSets: 3 },
-  { name: "Shoulder Press", lastWeight: 35, lastReps: 12, lastSets: 3 },
-  { name: "Incline Bench", lastWeight: 65, lastReps: 10, lastSets: 3 },
-  { name: "Lateral Raise", lastWeight: 15, lastReps: 15, lastSets: 3 },
-  { name: "Tricep Pushdown", lastWeight: 40, lastReps: 12, lastSets: 3 },
-];
-
-const STORAGE_KEY = "falconfit-last-performance";
-
-type PerformanceRecord = {
+type LastPerformance = {
   weight: number;
   reps: number;
   sets: number;
 };
 
+type Exercise = {
+  id: string;
+  name: string;
+  last?: LastPerformance;
+};
+
+type WorkoutDay = {
+  id: string;
+  name: string;
+  exercises: Exercise[];
+};
+
+const STORAGE_KEY = "falconfit-workout-days";
+
+const DEFAULT_DAY_NAMES = ["Chest", "Arms", "Back", "Legs", "Mobility", "Sport"];
+
+function createId() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function getDefaultDays(): WorkoutDay[] {
+  return DEFAULT_DAY_NAMES.map((name) => ({
+    id: createId(),
+    name,
+    exercises: [],
+  }));
+}
+
 export default function WorkoutsPage() {
- const [inputs, setInputs] = useState<Record<string, { weight: string; reps: string; sets: string }>>({});
+  const [days, setDays] = useState<WorkoutDay[]>([]);
+  const [selectedDayId, setSelectedDayId] = useState<string>("");
+  const [loaded, setLoaded] = useState(false);
 
-  const [lastPerformance, setLastPerformance] = useState<Record<string, PerformanceRecord>>({});
+  const [newDayName, setNewDayName] = useState("");
+  const [newExerciseName, setNewExerciseName] = useState("");
 
-  // On load: seed defaults from pushDayExercises, then overlay anything saved in localStorage
+  const [inputs, setInputs] = useState<Record<string, { weight: string; reps: string; sets: string }>>({});
+
+  // Load from localStorage on first render, or seed defaults if nothing saved yet
   useEffect(() => {
-    const defaults: Record<string, PerformanceRecord> = {};
-    pushDayExercises.forEach((ex) => {
-      defaults[ex.name] = {
-        weight: ex.lastWeight,
-        reps: ex.lastReps,
-        sets: ex.lastSets,
-      };
-    });
-
     const stored = localStorage.getItem(STORAGE_KEY);
-    const parsed = stored ? JSON.parse(stored) : {};
-
-    setLastPerformance({ ...defaults, ...parsed });
+    if (stored) {
+      const parsedDays: WorkoutDay[] = JSON.parse(stored);
+      setDays(parsedDays);
+      setSelectedDayId(parsedDays[0]?.id || "");
+    } else {
+      const defaults = getDefaultDays();
+      setDays(defaults);
+      setSelectedDayId(defaults[0].id);
+    }
+    setLoaded(true);
   }, []);
 
-  const handleChange = (
-    exercise: string,
+  // Save to localStorage any time days change (but not on the very first empty render)
+  useEffect(() => {
+    if (loaded) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(days));
+    }
+  }, [days, loaded]);
+
+  const selectedDay = days.find((d) => d.id === selectedDayId);
+
+  const handleAddDay = () => {
+    const name = newDayName.trim();
+    if (!name) return;
+
+    const newDay: WorkoutDay = {
+      id: createId(),
+      name,
+      exercises: [],
+    };
+
+    setDays((prev) => [...prev, newDay]);
+    setSelectedDayId(newDay.id);
+    setNewDayName("");
+  };
+
+  const handleAddExercise = () => {
+    const name = newExerciseName.trim();
+    if (!name || !selectedDay) return;
+
+    const newExercise: Exercise = {
+      id: createId(),
+      name,
+    };
+
+    setDays((prev) =>
+      prev.map((day) =>
+        day.id === selectedDay.id
+          ? { ...day, exercises: [...day.exercises, newExercise] }
+          : day
+      )
+    );
+    setNewExerciseName("");
+  };
+
+  const handleInputChange = (
+    exerciseId: string,
     field: "weight" | "reps" | "sets",
     value: string
   ) => {
     setInputs((prev) => ({
       ...prev,
-      [exercise]: {
-        ...prev[exercise],
+      [exerciseId]: {
+        ...prev[exerciseId],
         [field]: value,
       },
     }));
   };
 
-  const handleSave = (exercise: string) => {
-    const entry = inputs[exercise];
+  const handleSaveSet = (exerciseId: string) => {
+    const entry = inputs[exerciseId];
     if (!entry?.weight || !entry?.reps || !entry?.sets) return;
 
-    const newRecord: PerformanceRecord = {
+    const newLast: LastPerformance = {
       weight: Number(entry.weight),
       reps: Number(entry.reps),
       sets: Number(entry.sets),
     };
 
-    const updated = {
-      ...lastPerformance,
-      [exercise]: newRecord,
-    };
+    setDays((prev) =>
+      prev.map((day) => ({
+        ...day,
+        exercises: day.exercises.map((ex) =>
+          ex.id === exerciseId ? { ...ex, last: newLast } : ex
+        ),
+      }))
+    );
 
-    setLastPerformance(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-
-    // Clear the inputs after saving
     setInputs((prev) => ({
       ...prev,
-      [exercise]: { weight: "", reps: "", sets: "" },
+      [exerciseId]: { weight: "", reps: "", sets: "" },
     }));
   };
+
+  if (!loaded) {
+    return (
+      <main className="min-h-screen bg-gray-900 text-white p-6">
+        <div className="max-w-4xl mx-auto">
+          <Navigation />
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gray-900 text-white p-6">
@@ -93,19 +161,74 @@ export default function WorkoutsPage() {
         <Navigation />
         <h1 className="text-4xl font-bold mb-6">Workout Tracker</h1>
 
-        <div className="bg-gray-800 rounded-xl p-6">
-          <h2 className="text-2xl font-bold mb-4">Push Day</h2>
+        {/* Day selector tabs */}
+        <div className="flex gap-2 flex-wrap mb-6">
+          {days.map((day) => (
+            <button
+              key={day.id}
+              onClick={() => setSelectedDayId(day.id)}
+              className={`px-4 py-2 rounded-lg ${
+                day.id === selectedDayId
+                  ? "bg-blue-600"
+                  : "bg-gray-800 text-gray-300"
+              }`}
+            >
+              {day.name}
+            </button>
+          ))}
+        </div>
 
-          <div className="space-y-6">
-            {pushDayExercises.map((exercise) => {
-              const last = lastPerformance[exercise.name];
+        {/* Add new day */}
+        <div className="flex gap-3 mb-8">
+          <input
+            type="text"
+            placeholder="New day name (e.g. Cardio)"
+            value={newDayName}
+            onChange={(e) => setNewDayName(e.target.value)}
+            className="bg-gray-800 p-2 rounded flex-1"
+          />
+          <button
+            onClick={handleAddDay}
+            className="bg-green-600 px-4 py-2 rounded"
+          >
+            Add Day
+          </button>
+        </div>
 
-              return (
-                <div key={exercise.name}>
+        {selectedDay && (
+          <div className="bg-gray-800 rounded-xl p-6">
+            <h2 className="text-2xl font-bold mb-4">{selectedDay.name}</h2>
+
+            {/* Add new exercise to this day */}
+            <div className="flex gap-3 mb-6">
+              <input
+                type="text"
+                placeholder="New exercise name (e.g. Bench Press)"
+                value={newExerciseName}
+                onChange={(e) => setNewExerciseName(e.target.value)}
+                className="bg-gray-700 p-2 rounded flex-1"
+              />
+              <button
+                onClick={handleAddExercise}
+                className="bg-purple-600 px-4 py-2 rounded"
+              >
+                Add Exercise
+              </button>
+            </div>
+
+            {selectedDay.exercises.length === 0 && (
+              <p className="text-gray-500">
+                No exercises yet — add one above to get started.
+              </p>
+            )}
+
+            <div className="space-y-6">
+              {selectedDay.exercises.map((exercise) => (
+                <div key={exercise.id}>
                   <h3 className="text-xl font-semibold">{exercise.name}</h3>
                   <p className="text-gray-400 mb-3">
-                    {last
-                      ? `Last Workout: ${last.weight} lbs × ${last.reps} reps × ${last.sets} sets`
+                    {exercise.last
+                      ? `Last Workout: ${exercise.last.weight} lbs × ${exercise.last.reps} reps × ${exercise.last.sets} sets`
                       : "No previous data"}
                   </p>
 
@@ -113,42 +236,42 @@ export default function WorkoutsPage() {
                     <input
                       type="number"
                       placeholder="Weight"
-                      value={inputs[exercise.name]?.weight || ""}
+                      value={inputs[exercise.id]?.weight || ""}
                       onChange={(e) =>
-                        handleChange(exercise.name, "weight", e.target.value)
+                        handleInputChange(exercise.id, "weight", e.target.value)
                       }
                       className="bg-gray-700 p-2 rounded w-28"
                     />
                     <input
                       type="number"
                       placeholder="Reps"
-                      value={inputs[exercise.name]?.reps || ""}
+                      value={inputs[exercise.id]?.reps || ""}
                       onChange={(e) =>
-                        handleChange(exercise.name, "reps", e.target.value)
+                        handleInputChange(exercise.id, "reps", e.target.value)
                       }
                       className="bg-gray-700 p-2 rounded w-28"
                     />
                     <input
                       type="number"
                       placeholder="Sets"
-                      value={inputs[exercise.name]?.sets || ""}
+                      value={inputs[exercise.id]?.sets || ""}
                       onChange={(e) =>
-                        handleChange(exercise.name, "sets", e.target.value)
+                        handleInputChange(exercise.id, "sets", e.target.value)
                       }
                       className="bg-gray-700 p-2 rounded w-28"
                     />
                     <button
-                      onClick={() => handleSave(exercise.name)}
+                      onClick={() => handleSaveSet(exercise.id)}
                       className="bg-blue-600 px-4 py-2 rounded"
                     >
                       Save Set
                     </button>
                   </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </main>
   );

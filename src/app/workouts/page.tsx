@@ -45,9 +45,14 @@ export default function WorkoutsPage() {
   const [newDayName, setNewDayName] = useState("");
   const [newExerciseName, setNewExerciseName] = useState("");
 
+  const [editingDayId, setEditingDayId] = useState<string | null>(null);
+  const [editingDayName, setEditingDayName] = useState("");
+
+  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
+  const [editingExerciseName, setEditingExerciseName] = useState("");
+
   const [inputs, setInputs] = useState<Record<string, { weight: string; reps: string; sets: string }>>({});
 
-  // Load from localStorage on first render, or seed defaults if nothing saved yet
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -62,7 +67,6 @@ export default function WorkoutsPage() {
     setLoaded(true);
   }, []);
 
-  // Save to localStorage any time days change (but not on the very first empty render)
   useEffect(() => {
     if (loaded) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(days));
@@ -75,25 +79,48 @@ export default function WorkoutsPage() {
     const name = newDayName.trim();
     if (!name) return;
 
-    const newDay: WorkoutDay = {
-      id: createId(),
-      name,
-      exercises: [],
-    };
-
+    const newDay: WorkoutDay = { id: createId(), name, exercises: [] };
     setDays((prev) => [...prev, newDay]);
     setSelectedDayId(newDay.id);
     setNewDayName("");
+  };
+
+  const handleDeleteDay = (dayId: string, dayName: string) => {
+    const confirmed = window.confirm(`Delete "${dayName}" and all its exercises? This can't be undone.`);
+    if (!confirmed) return;
+
+    setDays((prev) => {
+      const updated = prev.filter((d) => d.id !== dayId);
+      if (selectedDayId === dayId) {
+        setSelectedDayId(updated[0]?.id || "");
+      }
+      return updated;
+    });
+  };
+
+  const startEditingDay = (day: WorkoutDay) => {
+    setEditingDayId(day.id);
+    setEditingDayName(day.name);
+  };
+
+  const saveEditingDay = () => {
+    const name = editingDayName.trim();
+    if (!name || !editingDayId) {
+      setEditingDayId(null);
+      return;
+    }
+
+    setDays((prev) =>
+      prev.map((day) => (day.id === editingDayId ? { ...day, name } : day))
+    );
+    setEditingDayId(null);
   };
 
   const handleAddExercise = () => {
     const name = newExerciseName.trim();
     if (!name || !selectedDay) return;
 
-    const newExercise: Exercise = {
-      id: createId(),
-      name,
-    };
+    const newExercise: Exercise = { id: createId(), name };
 
     setDays((prev) =>
       prev.map((day) =>
@@ -105,17 +132,50 @@ export default function WorkoutsPage() {
     setNewExerciseName("");
   };
 
-  const handleInputChange = (
-    exerciseId: string,
-    field: "weight" | "reps" | "sets",
-    value: string
-  ) => {
+  const handleDeleteExercise = (exerciseId: string, exerciseName: string) => {
+    const confirmed = window.confirm(`Delete "${exerciseName}"? This can't be undone.`);
+    if (!confirmed || !selectedDay) return;
+
+    setDays((prev) =>
+      prev.map((day) =>
+        day.id === selectedDay.id
+          ? { ...day, exercises: day.exercises.filter((ex) => ex.id !== exerciseId) }
+          : day
+      )
+    );
+  };
+
+  const startEditingExercise = (exercise: Exercise) => {
+    setEditingExerciseId(exercise.id);
+    setEditingExerciseName(exercise.name);
+  };
+
+  const saveEditingExercise = () => {
+    const name = editingExerciseName.trim();
+    if (!name || !editingExerciseId || !selectedDay) {
+      setEditingExerciseId(null);
+      return;
+    }
+
+    setDays((prev) =>
+      prev.map((day) =>
+        day.id === selectedDay.id
+          ? {
+              ...day,
+              exercises: day.exercises.map((ex) =>
+                ex.id === editingExerciseId ? { ...ex, name } : ex
+              ),
+            }
+          : day
+      )
+    );
+    setEditingExerciseId(null);
+  };
+
+  const handleInputChange = (exerciseId: string, field: "weight" | "reps" | "sets", value: string) => {
     setInputs((prev) => ({
       ...prev,
-      [exerciseId]: {
-        ...prev[exerciseId],
-        [field]: value,
-      },
+      [exerciseId]: { ...prev[exerciseId], [field]: value },
     }));
   };
 
@@ -138,10 +198,7 @@ export default function WorkoutsPage() {
       }))
     );
 
-    setInputs((prev) => ({
-      ...prev,
-      [exerciseId]: { weight: "", reps: "", sets: "" },
-    }));
+    setInputs((prev) => ({ ...prev, [exerciseId]: { weight: "", reps: "", sets: "" } }));
   };
 
   if (!loaded) {
@@ -164,17 +221,42 @@ export default function WorkoutsPage() {
         {/* Day selector tabs */}
         <div className="flex gap-2 flex-wrap mb-6">
           {days.map((day) => (
-            <button
-              key={day.id}
-              onClick={() => setSelectedDayId(day.id)}
-              className={`px-4 py-2 rounded-lg ${
-                day.id === selectedDayId
-                  ? "bg-blue-600"
-                  : "bg-gray-800 text-gray-300"
-              }`}
-            >
-              {day.name}
-            </button>
+            <div key={day.id} className="flex items-center">
+              {editingDayId === day.id ? (
+                <input
+                  type="text"
+                  value={editingDayName}
+                  onChange={(e) => setEditingDayName(e.target.value)}
+                  onBlur={saveEditingDay}
+                  onKeyDown={(e) => e.key === "Enter" && saveEditingDay()}
+                  autoFocus
+                  className="bg-gray-700 p-2 rounded w-32"
+                />
+              ) : (
+                <button
+                  onClick={() => setSelectedDayId(day.id)}
+                  className={`px-4 py-2 rounded-lg ${
+                    day.id === selectedDayId ? "bg-blue-600" : "bg-gray-800 text-gray-300"
+                  }`}
+                >
+                  {day.name}
+                </button>
+              )}
+              <button
+                onClick={() => startEditingDay(day)}
+                className="text-gray-400 hover:text-white px-1"
+                title="Rename day"
+              >
+                ✎
+              </button>
+              <button
+                onClick={() => handleDeleteDay(day.id, day.name)}
+                className="text-gray-400 hover:text-red-400 px-1"
+                title="Delete day"
+              >
+                ✕
+              </button>
+            </div>
           ))}
         </div>
 
@@ -187,10 +269,7 @@ export default function WorkoutsPage() {
             onChange={(e) => setNewDayName(e.target.value)}
             className="bg-gray-800 p-2 rounded flex-1"
           />
-          <button
-            onClick={handleAddDay}
-            className="bg-green-600 px-4 py-2 rounded"
-          >
+          <button onClick={handleAddDay} className="bg-green-600 px-4 py-2 rounded">
             Add Day
           </button>
         </div>
@@ -208,24 +287,48 @@ export default function WorkoutsPage() {
                 onChange={(e) => setNewExerciseName(e.target.value)}
                 className="bg-gray-700 p-2 rounded flex-1"
               />
-              <button
-                onClick={handleAddExercise}
-                className="bg-purple-600 px-4 py-2 rounded"
-              >
+              <button onClick={handleAddExercise} className="bg-purple-600 px-4 py-2 rounded">
                 Add Exercise
               </button>
             </div>
 
             {selectedDay.exercises.length === 0 && (
-              <p className="text-gray-500">
-                No exercises yet — add one above to get started.
-              </p>
+              <p className="text-gray-500">No exercises yet — add one above to get started.</p>
             )}
 
             <div className="space-y-6">
               {selectedDay.exercises.map((exercise) => (
                 <div key={exercise.id}>
-                  <h3 className="text-xl font-semibold">{exercise.name}</h3>
+                  <div className="flex items-center gap-2">
+                    {editingExerciseId === exercise.id ? (
+                      <input
+                        type="text"
+                        value={editingExerciseName}
+                        onChange={(e) => setEditingExerciseName(e.target.value)}
+                        onBlur={saveEditingExercise}
+                        onKeyDown={(e) => e.key === "Enter" && saveEditingExercise()}
+                        autoFocus
+                        className="bg-gray-700 p-2 rounded"
+                      />
+                    ) : (
+                      <h3 className="text-xl font-semibold">{exercise.name}</h3>
+                    )}
+                    <button
+                      onClick={() => startEditingExercise(exercise)}
+                      className="text-gray-400 hover:text-white px-1"
+                      title="Rename exercise"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      onClick={() => handleDeleteExercise(exercise.id, exercise.name)}
+                      className="text-gray-400 hover:text-red-400 px-1"
+                      title="Delete exercise"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
                   <p className="text-gray-400 mb-3">
                     {exercise.last
                       ? `Last Workout: ${exercise.last.weight} lbs × ${exercise.last.reps} reps × ${exercise.last.sets} sets`
@@ -237,27 +340,21 @@ export default function WorkoutsPage() {
                       type="number"
                       placeholder="Weight"
                       value={inputs[exercise.id]?.weight || ""}
-                      onChange={(e) =>
-                        handleInputChange(exercise.id, "weight", e.target.value)
-                      }
+                      onChange={(e) => handleInputChange(exercise.id, "weight", e.target.value)}
                       className="bg-gray-700 p-2 rounded w-28"
                     />
                     <input
                       type="number"
                       placeholder="Reps"
                       value={inputs[exercise.id]?.reps || ""}
-                      onChange={(e) =>
-                        handleInputChange(exercise.id, "reps", e.target.value)
-                      }
+                      onChange={(e) => handleInputChange(exercise.id, "reps", e.target.value)}
                       className="bg-gray-700 p-2 rounded w-28"
                     />
                     <input
                       type="number"
                       placeholder="Sets"
                       value={inputs[exercise.id]?.sets || ""}
-                      onChange={(e) =>
-                        handleInputChange(exercise.id, "sets", e.target.value)
-                      }
+                      onChange={(e) => handleInputChange(exercise.id, "sets", e.target.value)}
                       className="bg-gray-700 p-2 rounded w-28"
                     />
                     <button

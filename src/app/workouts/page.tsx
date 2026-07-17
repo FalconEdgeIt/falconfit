@@ -13,6 +13,7 @@ type Exercise = {
   id: string;
   name: string;
   last?: LastPerformance;
+  personalBest?: LastPerformance;
 };
 
 type WorkoutDay = {
@@ -22,6 +23,8 @@ type WorkoutDay = {
 };
 
 const STORAGE_KEY = "falconfit-workout-days";
+const SESSIONS_KEY = "falconfit-workout-sessions";
+const HISTORY_KEY = "falconfit-exercise-history";
 
 const DEFAULT_DAY_NAMES = ["Chest", "Arms", "Back", "Legs", "Mobility", "Sport"];
 
@@ -35,6 +38,43 @@ function getDefaultDays(): WorkoutDay[] {
     name,
     exercises: [],
   }));
+}
+
+function estimated1RM(weight: number, reps: number) {
+  return weight * (1 + reps / 30);
+}
+
+function recordTodaysSession() {
+  const today = new Date().toISOString().slice(0, 10);
+  const stored = localStorage.getItem(SESSIONS_KEY);
+  const sessions: string[] = stored ? JSON.parse(stored) : [];
+  if (!sessions.includes(today)) {
+    sessions.push(today);
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+  }
+}
+
+type HistoryEntry = {
+  date: string;
+  exerciseId: string;
+  exerciseName: string;
+  dayName: string;
+  weight: number;
+  reps: number;
+  sets: number;
+};
+
+function recordHistoryEntry(entry: HistoryEntry) {
+  const stored = localStorage.getItem(HISTORY_KEY);
+  const history: HistoryEntry[] = stored ? JSON.parse(stored) : [];
+  history.push(entry);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+}
+
+function swap<T>(arr: T[], i: number, j: number): T[] {
+  const copy = [...arr];
+  [copy[i], copy[j]] = [copy[j], copy[i]];
+  return copy;
 }
 
 export default function WorkoutsPage() {
@@ -52,6 +92,7 @@ export default function WorkoutsPage() {
   const [editingExerciseName, setEditingExerciseName] = useState("");
 
   const [inputs, setInputs] = useState<Record<string, { weight: string; reps: string; sets: string }>>({});
+  const [prFlash, setPrFlash] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -74,6 +115,7 @@ export default function WorkoutsPage() {
   }, [days, loaded]);
 
   const selectedDay = days.find((d) => d.id === selectedDayId);
+  const selectedDayIndex = days.findIndex((d) => d.id === selectedDayId);
 
   const handleAddDay = () => {
     const name = newDayName.trim();
@@ -98,6 +140,12 @@ export default function WorkoutsPage() {
     });
   };
 
+  const moveDay = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= days.length) return;
+    setDays((prev) => swap(prev, index, targetIndex));
+  };
+
   const startEditingDay = (day: WorkoutDay) => {
     setEditingDayId(day.id);
     setEditingDayName(day.name);
@@ -109,10 +157,7 @@ export default function WorkoutsPage() {
       setEditingDayId(null);
       return;
     }
-
-    setDays((prev) =>
-      prev.map((day) => (day.id === editingDayId ? { ...day, name } : day))
-    );
+    setDays((prev) => prev.map((day) => (day.id === editingDayId ? { ...day, name } : day)));
     setEditingDayId(null);
   };
 
@@ -121,12 +166,9 @@ export default function WorkoutsPage() {
     if (!name || !selectedDay) return;
 
     const newExercise: Exercise = { id: createId(), name };
-
     setDays((prev) =>
       prev.map((day) =>
-        day.id === selectedDay.id
-          ? { ...day, exercises: [...day.exercises, newExercise] }
-          : day
+        day.id === selectedDay.id ? { ...day, exercises: [...day.exercises, newExercise] } : day
       )
     );
     setNewExerciseName("");
@@ -145,6 +187,20 @@ export default function WorkoutsPage() {
     );
   };
 
+  const moveExercise = (index: number, direction: -1 | 1) => {
+    if (!selectedDay) return;
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= selectedDay.exercises.length) return;
+
+    setDays((prev) =>
+      prev.map((day) =>
+        day.id === selectedDay.id
+          ? { ...day, exercises: swap(day.exercises, index, targetIndex) }
+          : day
+      )
+    );
+  };
+
   const startEditingExercise = (exercise: Exercise) => {
     setEditingExerciseId(exercise.id);
     setEditingExerciseName(exercise.name);
@@ -156,7 +212,6 @@ export default function WorkoutsPage() {
       setEditingExerciseId(null);
       return;
     }
-
     setDays((prev) =>
       prev.map((day) =>
         day.id === selectedDay.id
@@ -181,24 +236,58 @@ export default function WorkoutsPage() {
 
   const handleSaveSet = (exerciseId: string) => {
     const entry = inputs[exerciseId];
-    if (!entry?.weight || !entry?.reps || !entry?.sets) return;
+    if (!entry?.weight || !entry?.reps || !entry?.sets || !selectedDay) return;
 
-    const newLast: LastPerformance = {
+    const newRecord: LastPerformance = {
       weight: Number(entry.weight),
       reps: Number(entry.reps),
       sets: Number(entry.sets),
     };
 
+    const exercise = selectedDay.exercises.find((ex) => ex.id === exerciseId);
+    const newOneRM = estimated1RM(newRecord.weight, newRecord.reps);
+    const priorBestOneRM = exercise?.personalBest
+      ? estimated1RM(exercise.personalBest.weight, exercise.personalBest.reps)
+      : 0;
+    const isNewPR = newOneRM > priorBestOneRM;
+
     setDays((prev) =>
       prev.map((day) => ({
         ...day,
         exercises: day.exercises.map((ex) =>
-          ex.id === exerciseId ? { ...ex, last: newLast } : ex
+          ex.id === exerciseId
+            ? {
+                ...ex,
+                last: newRecord,
+                personalBest: isNewPR ? newRecord : ex.personalBest,
+              }
+            : ex
         ),
       }))
     );
 
+    recordTodaysSession();
+
+    if (exercise) {
+      recordHistoryEntry({
+        date: new Date().toISOString(),
+        exerciseId,
+        exerciseName: exercise.name,
+        dayName: selectedDay.name,
+        weight: newRecord.weight,
+        reps: newRecord.reps,
+        sets: newRecord.sets,
+      });
+    }
+
     setInputs((prev) => ({ ...prev, [exerciseId]: { weight: "", reps: "", sets: "" } }));
+
+    if (isNewPR) {
+      setPrFlash((prev) => ({ ...prev, [exerciseId]: true }));
+      setTimeout(() => {
+        setPrFlash((prev) => ({ ...prev, [exerciseId]: false }));
+      }, 4000);
+    }
   };
 
   if (!loaded) {
@@ -218,10 +307,28 @@ export default function WorkoutsPage() {
         <Navigation />
         <h1 className="text-4xl font-bold mb-6">Workout Tracker</h1>
 
-        {/* Day selector tabs */}
         <div className="flex gap-2 flex-wrap mb-6">
-          {days.map((day) => (
-            <div key={day.id} className="flex items-center">
+          {days.map((day, index) => (
+            <div key={day.id} className="flex items-center bg-gray-800 rounded-lg">
+              <div className="flex flex-col">
+                <button
+                  onClick={() => moveDay(index, -1)}
+                  disabled={index === 0}
+                  className="text-gray-500 hover:text-white disabled:opacity-20 text-xs leading-none px-1"
+                  title="Move left"
+                >
+                  ◀
+                </button>
+                <button
+                  onClick={() => moveDay(index, 1)}
+                  disabled={index === days.length - 1}
+                  className="text-gray-500 hover:text-white disabled:opacity-20 text-xs leading-none px-1"
+                  title="Move right"
+                >
+                  ▶
+                </button>
+              </div>
+
               {editingDayId === day.id ? (
                 <input
                   type="text"
@@ -236,31 +343,22 @@ export default function WorkoutsPage() {
                 <button
                   onClick={() => setSelectedDayId(day.id)}
                   className={`px-4 py-2 rounded-lg ${
-                    day.id === selectedDayId ? "bg-blue-600" : "bg-gray-800 text-gray-300"
+                    day.id === selectedDayId ? "bg-blue-600" : "text-gray-300"
                   }`}
                 >
                   {day.name}
                 </button>
               )}
-              <button
-                onClick={() => startEditingDay(day)}
-                className="text-gray-400 hover:text-white px-1"
-                title="Rename day"
-              >
+              <button onClick={() => startEditingDay(day)} className="text-gray-400 hover:text-white px-1" title="Rename day">
                 ✎
               </button>
-              <button
-                onClick={() => handleDeleteDay(day.id, day.name)}
-                className="text-gray-400 hover:text-red-400 px-1"
-                title="Delete day"
-              >
+              <button onClick={() => handleDeleteDay(day.id, day.name)} className="text-gray-400 hover:text-red-400 px-1" title="Delete day">
                 ✕
               </button>
             </div>
           ))}
         </div>
 
-        {/* Add new day */}
         <div className="flex gap-3 mb-8">
           <input
             type="text"
@@ -278,7 +376,6 @@ export default function WorkoutsPage() {
           <div className="bg-gray-800 rounded-xl p-6">
             <h2 className="text-2xl font-bold mb-4">{selectedDay.name}</h2>
 
-            {/* Add new exercise to this day */}
             <div className="flex gap-3 mb-6">
               <input
                 type="text"
@@ -297,72 +394,92 @@ export default function WorkoutsPage() {
             )}
 
             <div className="space-y-6">
-              {selectedDay.exercises.map((exercise) => (
-                <div key={exercise.id}>
-                  <div className="flex items-center gap-2">
-                    {editingExerciseId === exercise.id ? (
-                      <input
-                        type="text"
-                        value={editingExerciseName}
-                        onChange={(e) => setEditingExerciseName(e.target.value)}
-                        onBlur={saveEditingExercise}
-                        onKeyDown={(e) => e.key === "Enter" && saveEditingExercise()}
-                        autoFocus
-                        className="bg-gray-700 p-2 rounded"
-                      />
-                    ) : (
-                      <h3 className="text-xl font-semibold">{exercise.name}</h3>
-                    )}
+              {selectedDay.exercises.map((exercise, index) => (
+                <div key={exercise.id} className="flex gap-3">
+                  <div className="flex flex-col justify-center gap-1 pt-1">
                     <button
-                      onClick={() => startEditingExercise(exercise)}
-                      className="text-gray-400 hover:text-white px-1"
-                      title="Rename exercise"
+                      onClick={() => moveExercise(index, -1)}
+                      disabled={index === 0}
+                      className="text-gray-500 hover:text-white disabled:opacity-20 text-xs leading-none"
+                      title="Move up"
                     >
-                      ✎
+                      ▲
                     </button>
                     <button
-                      onClick={() => handleDeleteExercise(exercise.id, exercise.name)}
-                      className="text-gray-400 hover:text-red-400 px-1"
-                      title="Delete exercise"
+                      onClick={() => moveExercise(index, 1)}
+                      disabled={index === selectedDay.exercises.length - 1}
+                      className="text-gray-500 hover:text-white disabled:opacity-20 text-xs leading-none"
+                      title="Move down"
                     >
-                      ✕
+                      ▼
                     </button>
                   </div>
 
-                  <p className="text-gray-400 mb-3">
-                    {exercise.last
-                      ? `Last Workout: ${exercise.last.weight} lbs × ${exercise.last.reps} reps × ${exercise.last.sets} sets`
-                      : "No previous data"}
-                  </p>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      {editingExerciseId === exercise.id ? (
+                        <input
+                          type="text"
+                          value={editingExerciseName}
+                          onChange={(e) => setEditingExerciseName(e.target.value)}
+                          onBlur={saveEditingExercise}
+                          onKeyDown={(e) => e.key === "Enter" && saveEditingExercise()}
+                          autoFocus
+                          className="bg-gray-700 p-2 rounded"
+                        />
+                      ) : (
+                        <h3 className="text-xl font-semibold">{exercise.name}</h3>
+                      )}
+                      <button onClick={() => startEditingExercise(exercise)} className="text-gray-400 hover:text-white px-1" title="Rename exercise">
+                        ✎
+                      </button>
+                      <button onClick={() => handleDeleteExercise(exercise.id, exercise.name)} className="text-gray-400 hover:text-red-400 px-1" title="Delete exercise">
+                        ✕
+                      </button>
+                    </div>
 
-                  <div className="flex gap-4 items-center flex-wrap">
-                    <input
-                      type="number"
-                      placeholder="Weight"
-                      value={inputs[exercise.id]?.weight || ""}
-                      onChange={(e) => handleInputChange(exercise.id, "weight", e.target.value)}
-                      className="bg-gray-700 p-2 rounded w-28"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Reps"
-                      value={inputs[exercise.id]?.reps || ""}
-                      onChange={(e) => handleInputChange(exercise.id, "reps", e.target.value)}
-                      className="bg-gray-700 p-2 rounded w-28"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Sets"
-                      value={inputs[exercise.id]?.sets || ""}
-                      onChange={(e) => handleInputChange(exercise.id, "sets", e.target.value)}
-                      className="bg-gray-700 p-2 rounded w-28"
-                    />
-                    <button
-                      onClick={() => handleSaveSet(exercise.id)}
-                      className="bg-blue-600 px-4 py-2 rounded"
-                    >
-                      Save Set
-                    </button>
+                    <p className="text-gray-400 mb-1">
+                      {exercise.last
+                        ? `Last Workout: ${exercise.last.weight} lbs × ${exercise.last.reps} reps × ${exercise.last.sets} sets`
+                        : "No previous data"}
+                    </p>
+
+                    {exercise.personalBest && (
+                      <p className="text-amber-400 text-sm mb-3">
+                        🏆 Personal Best: {exercise.personalBest.weight} lbs × {exercise.personalBest.reps} reps × {exercise.personalBest.sets} sets
+                      </p>
+                    )}
+
+                    {prFlash[exercise.id] && (
+                      <p className="text-green-400 font-semibold mb-3">🎉 New PR!</p>
+                    )}
+
+                    <div className="flex gap-4 items-center flex-wrap">
+                      <input
+                        type="number"
+                        placeholder="Weight"
+                        value={inputs[exercise.id]?.weight || ""}
+                        onChange={(e) => handleInputChange(exercise.id, "weight", e.target.value)}
+                        className="bg-gray-700 p-2 rounded w-28"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Reps"
+                        value={inputs[exercise.id]?.reps || ""}
+                        onChange={(e) => handleInputChange(exercise.id, "reps", e.target.value)}
+                        className="bg-gray-700 p-2 rounded w-28"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Sets"
+                        value={inputs[exercise.id]?.sets || ""}
+                        onChange={(e) => handleInputChange(exercise.id, "sets", e.target.value)}
+                        className="bg-gray-700 p-2 rounded w-28"
+                      />
+                      <button onClick={() => handleSaveSet(exercise.id)} className="bg-blue-600 px-4 py-2 rounded">
+                        Save Set
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

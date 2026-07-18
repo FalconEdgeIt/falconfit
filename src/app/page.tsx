@@ -4,14 +4,31 @@ import { useState, useEffect } from "react";
 import Navigation from "../components/Navigation";
 
 const SESSIONS_KEY = "falconfit-workout-sessions";
+const WEIGHT_KEY = "falconfit-weight-log";
+
+type WeightEntry = {
+  date: string;
+  weight: number;
+};
 
 export default function Home() {
   const [workoutCount, setWorkoutCount] = useState(0);
+  const [currentWeight, setCurrentWeight] = useState<number | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem(SESSIONS_KEY);
-    const sessions: string[] = stored ? JSON.parse(stored) : [];
+    const storedSessions = localStorage.getItem(SESSIONS_KEY);
+    const sessions: string[] = storedSessions ? JSON.parse(storedSessions) : [];
     setWorkoutCount(sessions.length);
+
+    const storedWeight = localStorage.getItem(WEIGHT_KEY);
+    const weightLog: WeightEntry[] = storedWeight ? JSON.parse(storedWeight) : [];
+
+    if (weightLog.length > 0) {
+      const sorted = [...weightLog].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      setCurrentWeight(sorted[0].weight);
+    }
   }, []);
 
   return (
@@ -23,7 +40,9 @@ export default function Home() {
         <div className="grid md:grid-cols-3 gap-4">
           <div className="bg-gray-800 rounded-xl p-5">
             <h2 className="text-lg font-semibold">Current Weight</h2>
-            <p className="text-3xl mt-2">249 lbs</p>
+            <p className="text-3xl mt-2">
+              {currentWeight !== null ? `${currentWeight} lbs` : "No data yet"}
+            </p>
           </div>
           <div className="bg-gray-800 rounded-xl p-5">
             <h2 className="text-lg font-semibold">Goal Weight</h2>

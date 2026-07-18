@@ -1,0 +1,54 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model WorkoutDay {
+  id        String     @id @default(cuid())
+  name      String
+  order     Int        @default(0)
+  exercises Exercise[]
+}
+
+model Exercise {
+  id         String     @id @default(cuid())
+  name       String
+  order      Int        @default(0)
+  dayId      String
+  day        WorkoutDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+
+  lastWeight Float?
+  lastReps   Int?
+  lastSets   Int?
+
+  bestWeight Float?
+  bestReps   Int?
+  bestSets   Int?
+
+  sets       SetLog[]
+}
+
+model SetLog {
+  id         String   @id @default(cuid())
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  date       DateTime @default(now())
+  weight     Float
+  reps       Int
+  sets       Int
+}
+
+model WeightEntry {
+  id     String   @id @default(cuid())
+  date   DateTime @unique
+  weight Float
+}

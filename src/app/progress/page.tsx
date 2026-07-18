@@ -12,22 +12,14 @@ import {
 } from "recharts";
 import Navigation from "../../components/Navigation";
 
-const WORKOUTS_KEY = "falconfit-workout-days";
-const HISTORY_KEY = "falconfit-exercise-history";
-const WEIGHT_KEY = "falconfit-weight-log";
-
-type Exercise = {
-  id: string;
-  name: string;
-};
-
 type WorkoutDay = {
   id: string;
   name: string;
-  exercises: Exercise[];
+  exercises: { id: string; name: string }[];
 };
 
 type HistoryEntry = {
+  id: string;
   date: string;
   exerciseId: string;
   exerciseName: string;
@@ -38,12 +30,24 @@ type HistoryEntry = {
 };
 
 type WeightEntry = {
+  id: string;
   date: string;
   weight: number;
 };
 
 function estimated1RM(weight: number, reps: number) {
   return weight * (1 + reps / 30);
+}
+
+function formatDate(input: string) {
+  const isPlainDate = /^\d{4}-\d{2}-\d{2}$/.test(input);
+  const date = isPlainDate ? new Date(`${input}T00:00:00`) : new Date(input);
+
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function WeightTooltip({ active, payload }: any) {
@@ -59,20 +63,6 @@ function WeightTooltip({ active, payload }: any) {
   return null;
 }
 
-function formatDate(input: string) {
-  // Plain "YYYY-MM-DD" strings (from the weight log date picker) get
-  // parsed as UTC midnight by default, which can shift the date back
-  // a day in timezones behind UTC. Adding a time forces local parsing.
-  const isPlainDate = /^\d{4}-\d{2}-\d{2}$/.test(input);
-  const date = isPlainDate ? new Date(`${input}T00:00:00`) : new Date(input);
-
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 export default function ProgressPage() {
   const [days, setDays] = useState<WorkoutDay[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -86,33 +76,55 @@ export default function ProgressPage() {
   });
 
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadData = async () => {
+    try {
+      const [daysRes, historyRes, weightRes] = await Promise.all([
+        fetch("/api/workout-days"),
+        fetch("/api/history"),
+        fetch("/api/weight"),
+      ]);
+
+      if (!daysRes.ok || !historyRes.ok || !weightRes.ok) throw new Error();
+
+      setDays(await daysRes.json());
+      setHistory(await historyRes.json());
+      setWeightLog(await weightRes.json());
+    } catch {
+      setError("Couldn't load your progress data. Check your connection and try refreshing.");
+    } finally {
+      setLoaded(true);
+    }
+  };
 
   useEffect(() => {
-    const storedDays = localStorage.getItem(WORKOUTS_KEY);
-    const storedHistory = localStorage.getItem(HISTORY_KEY);
-    const storedWeight = localStorage.getItem(WEIGHT_KEY);
-
-    setDays(storedDays ? JSON.parse(storedDays) : []);
-    setHistory(storedHistory ? JSON.parse(storedHistory) : []);
-    setWeightLog(storedWeight ? JSON.parse(storedWeight) : []);
-
-    setLoaded(true);
+    loadData();
   }, []);
 
- const handleAddWeight = () => {
+  const handleAddWeight = async () => {
     const weight = Number(newWeight);
     if (!weight || !newWeightDate) return;
 
-    // Remove any existing entry for this same date, then add the new one
-    const withoutSameDate = weightLog.filter((entry) => entry.date !== newWeightDate);
-    const newEntry: WeightEntry = { date: newWeightDate, weight };
-    const updated = [...withoutSameDate, newEntry].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    try {
+      const res = await fetch("/api/weight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: newWeightDate, weight }),
+      });
+      if (!res.ok) throw new Error();
+      const savedEntry: WeightEntry = await res.json();
 
-    setWeightLog(updated);
-    localStorage.setItem(WEIGHT_KEY, JSON.stringify(updated));
-    setNewWeight("");
+      setWeightLog((prev) => {
+        const withoutSameDate = prev.filter((e) => e.date !== savedEntry.date);
+        return [...withoutSameDate, savedEntry].sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+      });
+      setNewWeight("");
+    } catch {
+      setError("Couldn't save that weigh-in. Try again.");
+    }
   };
 
   const weightChartData = weightLog.map((entry) => ({
@@ -120,8 +132,6 @@ export default function ProgressPage() {
     weight: entry.weight,
   }));
 
-  // For each exercise, find its best-ever estimated 1RM from history,
-  // so we can mark which row is the personal best.
   const bestByExercise: Record<string, number> = {};
   history.forEach((entry) => {
     const oneRM = estimated1RM(entry.weight, entry.reps);
@@ -147,7 +157,12 @@ export default function ProgressPage() {
         <Navigation />
         <h1 className="text-4xl font-bold mb-6">Progress</h1>
 
-        {/* Weight log section */}
+        {error && (
+          <div className="bg-red-900/50 border border-red-700 text-red-200 rounded-lg p-3 mb-4">
+            {error}
+          </div>
+        )}
+
         <div className="bg-gray-800 rounded-xl p-6 mb-8">
           <h2 className="text-2xl font-bold mb-4">Body Weight</h2>
 
@@ -165,10 +180,7 @@ export default function ProgressPage() {
               onChange={(e) => setNewWeight(e.target.value)}
               className="bg-gray-700 p-2 rounded w-36"
             />
-            <button
-              onClick={handleAddWeight}
-              className="bg-blue-600 px-4 py-2 rounded"
-            >
+            <button onClick={handleAddWeight} className="bg-blue-600 px-4 py-2 rounded">
               Log Weight
             </button>
           </div>
@@ -192,9 +204,12 @@ export default function ProgressPage() {
           )}
         </div>
 
-        {/* History section - one table per day */}
         <div className="space-y-8">
           <h2 className="text-2xl font-bold">History</h2>
+
+          {days.length === 0 && (
+            <p className="text-gray-500">No workout days yet — add some on the Workouts page.</p>
+          )}
 
           {days.map((day) => {
             const dayEntries = history
@@ -221,12 +236,12 @@ export default function ProgressPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {dayEntries.map((entry, i) => {
+                        {dayEntries.map((entry) => {
                           const oneRM = estimated1RM(entry.weight, entry.reps);
                           const isPR = oneRM === bestByExercise[entry.exerciseId];
 
                           return (
-                            <tr key={i} className="border-b border-gray-700/50">
+                            <tr key={entry.id} className="border-b border-gray-700/50">
                               <td className="py-2 pr-4 text-gray-300">{formatDate(entry.date)}</td>
                               <td className="py-2 pr-4">{entry.exerciseName}</td>
                               <td className="py-2 pr-4">{entry.weight} lbs</td>

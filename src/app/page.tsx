@@ -14,6 +14,10 @@ type WorkoutDay = {
   name: string;
 };
 
+type Profile = {
+  goalWeight: number | null;
+};
+
 function buildGoogleCalendarUrl(
   title: string,
   dateStr: string,
@@ -41,6 +45,7 @@ function buildGoogleCalendarUrl(
 export default function Home() {
   const [workoutCount, setWorkoutCount] = useState(0);
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
+  const [goalWeight, setGoalWeight] = useState<number | null>(null);
   const [days, setDays] = useState<WorkoutDay[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -57,17 +62,19 @@ export default function Home() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [historyRes, weightRes, daysRes] = await Promise.all([
+        const [historyRes, weightRes, daysRes, profileRes] = await Promise.all([
           fetch("/api/history"),
           fetch("/api/weight"),
           fetch("/api/workout-days"),
+          fetch("/api/profile"),
         ]);
 
-        if (!historyRes.ok || !weightRes.ok || !daysRes.ok) throw new Error();
+        if (!historyRes.ok || !weightRes.ok || !daysRes.ok || !profileRes.ok) throw new Error();
 
         const history: { date: string }[] = await historyRes.json();
         const weightLog: WeightEntry[] = await weightRes.json();
         const workoutDays: WorkoutDay[] = await daysRes.json();
+        const profile: Profile = await profileRes.json();
 
         const uniqueDays = new Set(
           history.map((entry) => new Date(entry.date).toISOString().slice(0, 10))
@@ -81,6 +88,7 @@ export default function Home() {
           setCurrentWeight(sorted[0].weight);
         }
 
+        setGoalWeight(profile.goalWeight);
         setDays(workoutDays);
         setSelectedDayId(workoutDays[0]?.id || "");
       } catch {
@@ -97,10 +105,10 @@ export default function Home() {
 
   const calendarUrl = selectedDay
     ? buildGoogleCalendarUrl(
-      `FalconFit: ${selectedDay.name} Workout`,
-      scheduleDate,
-      scheduleTime
-    )
+        `FalconFit: ${selectedDay.name} Workout`,
+        scheduleDate,
+        scheduleTime
+      )
     : "";
 
   return (
@@ -125,7 +133,9 @@ export default function Home() {
           </div>
           <div className="bg-gray-800 rounded-xl p-5">
             <h2 className="text-lg font-semibold">Goal Weight</h2>
-            <p className="text-3xl mt-2">200 lbs</p>
+            <p className="text-3xl mt-2">
+              {!loaded ? "..." : goalWeight !== null ? `${goalWeight} lbs` : "Not set"}
+            </p>
           </div>
           <div className="bg-gray-800 rounded-xl p-5">
             <h2 className="text-lg font-semibold">Workouts</h2>
@@ -181,7 +191,6 @@ export default function Home() {
                       className="bg-gray-800 p-2 rounded"
                     />
                   </div>
-
 
                   <a href={calendarUrl} target="_blank" rel="noopener noreferrer" className="inline-block bg-blue-600 px-4 py-2 rounded">Add to Google Calendar</a>
                 </div>

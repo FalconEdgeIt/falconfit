@@ -52,3 +52,10 @@ model WeightEntry {
   date   DateTime @unique
   weight Float
 }
+model Profile {
+  id          String    @id @default("singleton")
+  goalWeight  Float?
+  birthdate   DateTime?
+  heightInches Float?
+  sex         String?
+}

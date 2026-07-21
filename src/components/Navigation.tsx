@@ -24,6 +24,10 @@ export default function Navigation() {
           ⚖ Progress
         </a>
 
+        <a href="/settings" className="hover:text-blue-400">
+          ⚙ Settings
+        </a>
+
       </div>
 
     </nav>

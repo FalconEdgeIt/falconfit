@@ -384,7 +384,7 @@ export default function WorkoutsPage() {
                 <button
                   onClick={() => setSelectedDayId(day.id)}
                   className={`px-4 py-2 rounded-lg ${
-                    day.id === selectedDayId ? "bg-blue-600" : "text-gray-300"
+                    day.id === selectedDayId ? "bg-red-600" : "text-gray-300"
                   }`}
                 >
                   {day.name}
@@ -408,7 +408,7 @@ export default function WorkoutsPage() {
             onChange={(e) => setNewDayName(e.target.value)}
             className="bg-gray-800 p-2 rounded flex-1"
           />
-          <button onClick={handleAddDay} className="bg-green-600 px-4 py-2 rounded">
+          <button onClick={handleAddDay} className="bg-red-700 px-4 py-2 rounded">
             Add Day
           </button>
         </div>
@@ -425,7 +425,7 @@ export default function WorkoutsPage() {
                 onChange={(e) => setNewExerciseName(e.target.value)}
                 className="bg-gray-700 p-2 rounded flex-1"
               />
-              <button onClick={handleAddExercise} className="bg-purple-600 px-4 py-2 rounded">
+              <button onClick={handleAddExercise} className="bg-red-800 px-4 py-2 rounded">
                 Add Exercise
               </button>
             </div>
@@ -517,7 +517,7 @@ export default function WorkoutsPage() {
                         onChange={(e) => handleInputChange(exercise.id, "sets", e.target.value)}
                         className="bg-gray-700 p-2 rounded w-28"
                       />
-                      <button onClick={() => handleSaveSet(exercise.id)} className="bg-blue-600 px-4 py-2 rounded">
+                      <button onClick={() => handleSaveSet(exercise.id)} className="bg-red-600 px-4 py-2 rounded">
                         Save Set
                       </button>
                     </div>

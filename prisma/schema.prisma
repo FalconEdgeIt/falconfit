@@ -53,9 +53,22 @@ model WeightEntry {
   weight Float
 }
 model Profile {
-  id          String    @id @default("singleton")
-  goalWeight  Float?
-  birthdate   DateTime?
-  heightInches Float?
-  sex         String?
+  id            String    @id @default("singleton")
+  goalWeight    Float?
+  birthdate     DateTime?
+  heightInches  Float?
+  sex           String?
+  calorieTarget Float?
+  proteinTarget Float?
+  carbTarget    Float?
+  fatTarget     Float?
+}
+model FoodEntry {
+  id       String   @id @default(cuid())
+  date     DateTime @default(now())
+  name     String
+  calories Float
+  protein  Float
+  carbs    Float
+  fat      Float
 }

@@ -19,7 +19,16 @@ export async function GET() {
 // PATCH update any subset of profile fields
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const { goalWeight, birthdate, heightInches, sex } = body;
+  const {
+    goalWeight,
+    birthdate,
+    heightInches,
+    sex,
+    calorieTarget,
+    proteinTarget,
+    carbTarget,
+    fatTarget,
+  } = body;
 
   const profile = await prisma.profile.upsert({
     where: { id: "singleton" },
@@ -28,6 +37,10 @@ export async function PATCH(request: Request) {
       ...(birthdate !== undefined && { birthdate: birthdate ? new Date(birthdate) : null }),
       ...(heightInches !== undefined && { heightInches }),
       ...(sex !== undefined && { sex }),
+      ...(calorieTarget !== undefined && { calorieTarget }),
+      ...(proteinTarget !== undefined && { proteinTarget }),
+      ...(carbTarget !== undefined && { carbTarget }),
+      ...(fatTarget !== undefined && { fatTarget }),
     },
     create: {
       id: "singleton",
@@ -35,6 +48,10 @@ export async function PATCH(request: Request) {
       birthdate: birthdate ? new Date(birthdate) : null,
       heightInches,
       sex,
+      calorieTarget,
+      proteinTarget,
+      carbTarget,
+      fatTarget,
     },
   });
 

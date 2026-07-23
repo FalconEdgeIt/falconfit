@@ -9,6 +9,10 @@ type Profile = {
   birthdate: string | null;
   heightInches: number | null;
   sex: string | null;
+  calorieTarget: number | null;
+  proteinTarget: number | null;
+  carbTarget: number | null;
+  fatTarget: number | null;
 };
 
 function calculateAge(birthdate: string): number {
@@ -29,6 +33,11 @@ export default function SettingsPage() {
   const [heightInchesRemainder, setHeightInchesRemainder] = useState("");
   const [sex, setSex] = useState("");
 
+  const [calorieTarget, setCalorieTarget] = useState("");
+  const [proteinTarget, setProteinTarget] = useState("");
+  const [carbTarget, setCarbTarget] = useState("");
+  const [fatTarget, setFatTarget] = useState("");
+
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -43,6 +52,11 @@ export default function SettingsPage() {
         setGoalWeight(profile.goalWeight?.toString() || "");
         setBirthdate(profile.birthdate ? profile.birthdate.slice(0, 10) : "");
         setSex(profile.sex || "");
+
+        setCalorieTarget(profile.calorieTarget?.toString() || "");
+        setProteinTarget(profile.proteinTarget?.toString() || "");
+        setCarbTarget(profile.carbTarget?.toString() || "");
+        setFatTarget(profile.fatTarget?.toString() || "");
 
         if (profile.heightInches) {
           setHeightFeet(Math.floor(profile.heightInches / 12).toString());
@@ -75,6 +89,10 @@ export default function SettingsPage() {
           birthdate: birthdate || null,
           heightInches: totalHeightInches || null,
           sex: sex || null,
+          calorieTarget: calorieTarget ? Number(calorieTarget) : null,
+          proteinTarget: proteinTarget ? Number(proteinTarget) : null,
+          carbTarget: carbTarget ? Number(carbTarget) : null,
+          fatTarget: fatTarget ? Number(fatTarget) : null,
         }),
       });
       if (!res.ok) throw new Error();
@@ -169,6 +187,52 @@ export default function SettingsPage() {
               <option value="male">Male</option>
               <option value="female">Female</option>
             </select>
+          </div>
+
+          <div className="pt-4 border-t border-gray-700">
+            <h2 className="text-xl font-bold mb-4">Daily Nutrition Targets</h2>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-400 mb-2">Calories</label>
+                <input
+                  type="number"
+                  value={calorieTarget}
+                  onChange={(e) => setCalorieTarget(e.target.value)}
+                  className="bg-gray-700 p-2 rounded w-full"
+                  placeholder="e.g. 2200"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 mb-2">Protein (g)</label>
+                <input
+                  type="number"
+                  value={proteinTarget}
+                  onChange={(e) => setProteinTarget(e.target.value)}
+                  className="bg-gray-700 p-2 rounded w-full"
+                  placeholder="e.g. 180"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 mb-2">Carbs (g)</label>
+                <input
+                  type="number"
+                  value={carbTarget}
+                  onChange={(e) => setCarbTarget(e.target.value)}
+                  className="bg-gray-700 p-2 rounded w-full"
+                  placeholder="e.g. 220"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 mb-2">Fat (g)</label>
+                <input
+                  type="number"
+                  value={fatTarget}
+                  onChange={(e) => setFatTarget(e.target.value)}
+                  className="bg-gray-700 p-2 rounded w-full"
+                  placeholder="e.g. 70"
+                />
+              </div>
+            </div>
           </div>
 
           <button

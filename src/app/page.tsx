@@ -115,8 +115,11 @@ export default function Home() {
     <main className="min-h-screen bg-gray-900 text-white p-6">
       <div className="max-w-4xl mx-auto">
         <Navigation />
-        <h1 className="text-4xl font-bold mb-6">FalconFit</h1>
-        <p className="text-gray-300 mb-8">Your personal fitness tracking dashboard</p>
+
+        <div className="text-center mb-8">
+          <img src="/falconfit-logo.png" alt="FalconFit" className="h-40 mx-auto mb-2" />
+          <p className="text-gray-300">Your personal fitness tracking dashboard</p>
+        </div>
 
         {error && (
           <div className="bg-red-900/50 border border-red-700 text-red-200 rounded-lg p-3 mb-4">
@@ -148,12 +151,12 @@ export default function Home() {
           <div className="flex gap-4 flex-wrap">
             <button
               onClick={() => setShowScheduler((prev) => !prev)}
-              className="bg-blue-600 px-5 py-3 rounded-lg"
+              className="bg-red-600 px-5 py-3 rounded-lg"
             >
               📅 Schedule Workout
             </button>
-            <button className="bg-green-600 px-5 py-3 rounded-lg">Log Food</button>
-            <button className="bg-purple-600 px-5 py-3 rounded-lg">Supplements</button>
+            <button className="bg-red-700 px-5 py-3 rounded-lg">Log Food</button>
+            <button className="bg-red-800 px-5 py-3 rounded-lg">Supplements</button>
           </div>
 
           {showScheduler && (
@@ -192,7 +195,7 @@ export default function Home() {
                     />
                   </div>
 
-                  <a href={calendarUrl} target="_blank" rel="noopener noreferrer" className="inline-block bg-blue-600 px-4 py-2 rounded">Add to Google Calendar</a>
+                  <a href={calendarUrl} target="_blank" rel="noopener noreferrer" className="inline-block bg-red-600 px-4 py-2 rounded">Add to Google Calendar</a>
                 </div>
               )}
             </div>

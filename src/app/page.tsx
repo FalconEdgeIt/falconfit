@@ -196,11 +196,16 @@ export default function Home() {
                   </div>
 
                   <a href={calendarUrl} target="_blank" rel="noopener noreferrer" className="inline-block bg-red-600 px-4 py-2 rounded">Add to Google Calendar</a>
-                </div>
+                 </div>
               )}
             </div>
           )}
         </div>
+
+        <a href="https://www.falconedgeit.ca" target="_blank" rel="noopener noreferrer" className="fixed bottom-4 right-4 flex items-center gap-2 bg-gray-800/80 backdrop-blur px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-red-400 transition-colors">
+          <img src="/falconfit-icon.png" alt="FalconEdge IT" className="h-5 w-auto" />
+          Powered by FalconEdge IT
+        </a>
       </div>
     </main>
   );

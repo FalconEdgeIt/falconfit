@@ -56,7 +56,7 @@ function WeightTooltip({ active, payload }: any) {
     return (
       <div className="bg-gray-800 border border-gray-700 rounded px-3 py-2">
         <p className="text-gray-300 text-sm">{point.date}</p>
-        <p className="text-blue-400 font-semibold">{point.weight} lbs</p>
+        <p className="text-red-400 font-semibold">{point.weight} lbs</p>
       </div>
     );
   }
@@ -180,7 +180,7 @@ export default function ProgressPage() {
               onChange={(e) => setNewWeight(e.target.value)}
               className="bg-gray-700 p-2 rounded w-36"
             />
-            <button onClick={handleAddWeight} className="bg-blue-600 px-4 py-2 rounded">
+            <button onClick={handleAddWeight} className="bg-red-600 px-4 py-2 rounded">
               Log Weight
             </button>
           </div>
@@ -197,7 +197,7 @@ export default function ProgressPage() {
                   <XAxis dataKey="date" stroke="#9ca3af" />
                   <YAxis stroke="#9ca3af" domain={["dataMin - 5", "dataMax + 5"]} />
                   <Tooltip content={<WeightTooltip />} />
-                  <Line type="monotone" dataKey="weight" stroke="#3b82f6" strokeWidth={2} />
+                  <Line type="monotone" dataKey="weight" stroke="#dc2626" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

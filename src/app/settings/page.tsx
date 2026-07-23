@@ -173,7 +173,7 @@ export default function SettingsPage() {
 
           <button
             onClick={handleSave}
-            className="bg-blue-600 px-5 py-2 rounded"
+            className="bg-red-600 px-5 py-2 rounded"
           >
             Save Settings
           </button>

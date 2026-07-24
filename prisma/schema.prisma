@@ -72,3 +72,18 @@ model FoodEntry {
   carbs    Float
   fat      Float
 }
+model Supplement {
+  id    String          @id @default(cuid())
+  name  String
+  order Int             @default(0)
+  logs  SupplementLog[]
+}
+
+model SupplementLog {
+  id           String     @id @default(cuid())
+  supplementId String
+  supplement   Supplement @relation(fields: [supplementId], references: [id], onDelete: Cascade)
+  date         DateTime
+
+  @@unique([supplementId, date])
+}

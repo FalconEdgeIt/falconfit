@@ -12,11 +12,47 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  ADMIN
+  TRAINER
+  MEMBER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(MEMBER)
+  createdAt    DateTime @default(now())
+
+  groupId String?
+  group   Group?  @relation("GroupMembers", fields: [groupId], references: [id], onDelete: SetNull)
+  ledGroup Group? @relation("GroupTrainer")
+
+  workoutDays   WorkoutDay[]
+  foodEntries   FoodEntry[]
+  weightEntries WeightEntry[]
+  supplements   Supplement[]
+  profile       Profile?
+}
+
+model Group {
+  id        String @id @default(cuid())
+  name      String
+  trainerId String @unique
+  trainer   User   @relation("GroupTrainer", fields: [trainerId], references: [id])
+  members   User[] @relation("GroupMembers")
+}
+
 model WorkoutDay {
   id        String     @id @default(cuid())
   name      String
   order     Int        @default(0)
   exercises Exercise[]
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Exercise {
@@ -49,11 +85,16 @@ model SetLog {
 
 model WeightEntry {
   id     String   @id @default(cuid())
-  date   DateTime @unique
+  date   DateTime
   weight Float
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
 }
 model Profile {
-  id            String    @id @default("singleton")
+  id            String    @id @default(cuid())
   goalWeight    Float?
   birthdate     DateTime?
   heightInches  Float?
@@ -62,6 +103,9 @@ model Profile {
   proteinTarget Float?
   carbTarget    Float?
   fatTarget     Float?
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 model FoodEntry {
   id       String   @id @default(cuid())
@@ -71,12 +115,18 @@ model FoodEntry {
   protein  Float
   carbs    Float
   fat      Float
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 model Supplement {
   id    String          @id @default(cuid())
   name  String
   order Int             @default(0)
   logs  SupplementLog[]
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model SupplementLog {

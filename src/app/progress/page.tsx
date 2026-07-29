@@ -63,10 +63,18 @@ function WeightTooltip({ active, payload }: any) {
   return null;
 }
 
+type Me = {
+  role: "ADMIN" | "TRAINER" | "MEMBER";
+  members?: { id: string; name: string }[];
+};
+
 export default function ProgressPage() {
   const [days, setDays] = useState<WorkoutDay[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [weightLog, setWeightLog] = useState<WeightEntry[]>([]);
+
+  const [me, setMe] = useState<Me | null>(null);
+  const [viewingId, setViewingId] = useState("");
 
   const [newWeight, setNewWeight] = useState("");
   const [newWeightDate, setNewWeightDate] = useState(() => {
@@ -78,12 +86,14 @@ export default function ProgressPage() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
 
+  const withViewer = (path: string) => (viewingId ? `${path}?userId=${viewingId}` : path);
+
   const loadData = async () => {
     try {
       const [daysRes, historyRes, weightRes] = await Promise.all([
-        fetch("/api/workout-days"),
-        fetch("/api/history"),
-        fetch("/api/weight"),
+        fetch(withViewer("/api/workout-days")),
+        fetch(withViewer("/api/history")),
+        fetch(withViewer("/api/weight")),
       ]);
 
       if (!daysRes.ok || !historyRes.ok || !weightRes.ok) throw new Error();
@@ -99,8 +109,16 @@ export default function ProgressPage() {
   };
 
   useEffect(() => {
-    loadData();
+    fetch("/api/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setMe)
+      .catch(() => setMe(null));
   }, []);
+
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingId]);
 
   const handleAddWeight = async () => {
     const weight = Number(newWeight);
@@ -157,6 +175,24 @@ export default function ProgressPage() {
         <Navigation />
         <h1 className="text-4xl font-bold mb-6">Progress</h1>
 
+        {me?.role === "TRAINER" && me.members && me.members.length > 0 && (
+          <div className="flex items-center gap-3 mb-6">
+            <label className="text-gray-400 text-sm">Viewing:</label>
+            <select
+              value={viewingId}
+              onChange={(e) => setViewingId(e.target.value)}
+              className="bg-gray-800 p-2 rounded"
+            >
+              <option value="">Me</option>
+              {me.members.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-900/50 border border-red-700 text-red-200 rounded-lg p-3 mb-4">
             {error}
@@ -166,24 +202,28 @@ export default function ProgressPage() {
         <div className="bg-gray-800 rounded-xl p-6 mb-8">
           <h2 className="text-2xl font-bold mb-4">Body Weight</h2>
 
-          <div className="flex gap-3 mb-6 flex-wrap items-center">
-            <input
-              type="date"
-              value={newWeightDate}
-              onChange={(e) => setNewWeightDate(e.target.value)}
-              className="bg-gray-700 p-2 rounded"
-            />
-            <input
-              type="number"
-              placeholder="Weight (lbs)"
-              value={newWeight}
-              onChange={(e) => setNewWeight(e.target.value)}
-              className="bg-gray-700 p-2 rounded w-36"
-            />
-            <button onClick={handleAddWeight} className="bg-red-600 px-4 py-2 rounded">
-              Log Weight
-            </button>
-          </div>
+          {viewingId ? (
+            <p className="text-gray-500 text-sm mb-4">Read-only — you're viewing this Member's progress.</p>
+          ) : (
+            <div className="flex gap-3 mb-6 flex-wrap items-center">
+              <input
+                type="date"
+                value={newWeightDate}
+                onChange={(e) => setNewWeightDate(e.target.value)}
+                className="bg-gray-700 p-2 rounded"
+              />
+              <input
+                type="number"
+                placeholder="Weight (lbs)"
+                value={newWeight}
+                onChange={(e) => setNewWeight(e.target.value)}
+                className="bg-gray-700 p-2 rounded w-36"
+              />
+              <button onClick={handleAddWeight} className="bg-red-600 px-4 py-2 rounded">
+                Log Weight
+              </button>
+            </div>
+          )}
 
           {weightChartData.length === 0 ? (
             <p className="text-gray-500">

@@ -23,11 +23,19 @@ type WorkoutDay = {
   exercises: Exercise[];
 };
 
+type Me = {
+  role: "ADMIN" | "TRAINER" | "MEMBER";
+  members?: { id: string; name: string }[];
+};
+
 export default function WorkoutsPage() {
   const [days, setDays] = useState<WorkoutDay[]>([]);
   const [selectedDayId, setSelectedDayId] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
+
+  const [me, setMe] = useState<Me | null>(null);
+  const [viewingId, setViewingId] = useState("");
 
   const [newDayName, setNewDayName] = useState("");
   const [newExerciseName, setNewExerciseName] = useState("");
@@ -41,13 +49,16 @@ export default function WorkoutsPage() {
   const [inputs, setInputs] = useState<Record<string, { weight: string; reps: string; sets: string }>>({});
   const [prFlash, setPrFlash] = useState<Record<string, boolean>>({});
 
+  const workoutDaysUrl = (path = "/api/workout-days") =>
+    viewingId ? `${path}?userId=${viewingId}` : path;
+
   const loadDays = async () => {
     try {
-      const res = await fetch("/api/workout-days");
+      const res = await fetch(workoutDaysUrl());
       if (!res.ok) throw new Error("Failed to load workout days");
       const data: WorkoutDay[] = await res.json();
       setDays(data);
-      setSelectedDayId((prev) => prev || data[0]?.id || "");
+      setSelectedDayId(data[0]?.id || "");
     } catch (err) {
       setError("Couldn't load your workouts. Check your connection and try refreshing.");
     } finally {
@@ -56,8 +67,16 @@ export default function WorkoutsPage() {
   };
 
   useEffect(() => {
-    loadDays();
+    fetch("/api/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setMe)
+      .catch(() => setMe(null));
   }, []);
+
+  useEffect(() => {
+    loadDays();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingId]);
 
   const selectedDay = days.find((d) => d.id === selectedDayId);
 
@@ -66,7 +85,7 @@ export default function WorkoutsPage() {
     if (!name) return;
 
     try {
-      const res = await fetch("/api/workout-days", {
+      const res = await fetch(workoutDaysUrl(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -335,6 +354,24 @@ export default function WorkoutsPage() {
       <div className="max-w-4xl mx-auto">
         <Navigation />
         <h1 className="text-4xl font-bold mb-6">Workout Tracker</h1>
+
+        {me?.role === "TRAINER" && me.members && me.members.length > 0 && (
+          <div className="flex items-center gap-3 mb-6">
+            <label className="text-gray-400 text-sm">Viewing:</label>
+            <select
+              value={viewingId}
+              onChange={(e) => setViewingId(e.target.value)}
+              className="bg-gray-800 p-2 rounded"
+            >
+              <option value="">Me</option>
+              {me.members.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-900/50 border border-red-700 text-red-200 rounded-lg p-3 mb-4">

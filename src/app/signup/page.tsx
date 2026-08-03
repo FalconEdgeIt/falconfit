@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -16,22 +17,22 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ name, email, password }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || "Couldn't log in. Try again.");
+        setError(data.error || "Couldn't sign up. Try again.");
         return;
       }
 
       router.push("/");
       router.refresh();
     } catch {
-      setError("Couldn't log in. Check your connection and try again.");
+      setError("Couldn't sign up. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -45,7 +46,7 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="bg-gray-800 rounded-xl p-6 space-y-4">
-          <h1 className="text-2xl font-bold mb-2">Log In</h1>
+          <h1 className="text-2xl font-bold mb-2">Sign Up</h1>
 
           {error && (
             <div className="bg-red-900/50 border border-red-700 text-red-200 rounded-lg p-3 text-sm">
@@ -54,13 +55,24 @@ export default function LoginPage() {
           )}
 
           <div>
+            <label className="block text-gray-400 mb-2 text-sm">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoFocus
+              className="bg-gray-700 p-2 rounded w-full"
+            />
+          </div>
+
+          <div>
             <label className="block text-gray-400 mb-2 text-sm">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              autoFocus
               className="bg-gray-700 p-2 rounded w-full"
             />
           </div>
@@ -72,6 +84,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={8}
               className="bg-gray-700 p-2 rounded w-full"
             />
           </div>
@@ -81,13 +94,13 @@ export default function LoginPage() {
             disabled={submitting}
             className="bg-red-600 px-4 py-2 rounded w-full font-semibold disabled:opacity-50"
           >
-            {submitting ? "Logging in..." : "Log In"}
+            {submitting ? "Signing up..." : "Sign Up"}
           </button>
 
           <p className="text-center text-sm text-gray-400">
-            Don&apos;t have an account?{" "}
-            <a href="/signup" className="text-red-400 hover:underline">
-              Sign Up
+            Already have an account?{" "}
+            <a href="/login" className="text-red-400 hover:underline">
+              Log In
             </a>
           </p>
         </form>

@@ -18,6 +18,7 @@ export async function GET() {
       name: true,
       email: true,
       role: true,
+      disabled: true,
       groupId: true,
       group: { select: { id: true, name: true } },
       ledGroup: { select: { id: true, name: true } },

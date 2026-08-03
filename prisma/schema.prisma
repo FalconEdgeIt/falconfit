@@ -24,6 +24,7 @@ model User {
   passwordHash String
   name         String
   role         Role     @default(MEMBER)
+  disabled     Boolean  @default(false)
   createdAt    DateTime @default(now())
 
   groupId String?

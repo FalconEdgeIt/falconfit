@@ -9,6 +9,12 @@ export async function requireUser(): Promise<Session | NextResponse> {
   if (!session) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const user = await prisma.user.findUnique({ where: { id: session.id }, select: { disabled: true } });
+  if (!user || user.disabled) {
+    return NextResponse.json({ error: "This account has been disabled" }, { status: 403 });
+  }
+
   return session;
 }
 

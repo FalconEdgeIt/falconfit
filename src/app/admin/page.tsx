@@ -11,6 +11,7 @@ type AdminUser = {
   name: string;
   email: string;
   role: Role;
+  disabled: boolean;
   groupId: string | null;
   group: { id: string; name: string } | null;
   ledGroup: { id: string; name: string } | null;
@@ -114,6 +115,21 @@ export default function AdminPage() {
       loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't delete that user.");
+    }
+  };
+
+  const handleToggleDisabled = async (id: string, disabled: boolean) => {
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disabled }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update user");
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't update that user.");
     }
   };
 
@@ -221,6 +237,14 @@ export default function AdminPage() {
                 {u.role === "TRAINER" && u.ledGroup && (
                   <span className="text-gray-400 text-sm">leads {u.ledGroup.name}</span>
                 )}
+                <label className="flex items-center gap-2 text-sm text-gray-400">
+                  <input
+                    type="checkbox"
+                    checked={u.disabled}
+                    onChange={(e) => handleToggleDisabled(u.id, e.target.checked)}
+                  />
+                  Blocked
+                </label>
                 <button
                   onClick={() => handleDeleteUser(u.id, u.name)}
                   className="text-gray-400 hover:text-red-400 px-2"

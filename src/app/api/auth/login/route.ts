@@ -16,6 +16,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
   }
 
+  if (user.disabled) {
+    return NextResponse.json({ error: "This account has been disabled" }, { status: 403 });
+  }
+
   const token = signSession({ sub: user.id, role: user.role });
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, sessionCookieOptions());

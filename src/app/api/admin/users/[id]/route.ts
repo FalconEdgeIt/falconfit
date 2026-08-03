@@ -21,7 +21,19 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const { name, email, password, role, groupId } = body;
+  const { name, email, password, role, groupId, disabled } = body;
+
+  if (disabled === true) {
+    if (id === session.id) {
+      return NextResponse.json({ error: "You can't disable your own account" }, { status: 400 });
+    }
+    if (target.role === Role.ADMIN) {
+      const adminCount = await prisma.user.count({ where: { role: Role.ADMIN, disabled: false } });
+      if (adminCount <= 1) {
+        return NextResponse.json({ error: "Can't disable the last remaining Admin" }, { status: 400 });
+      }
+    }
+  }
 
   if (role !== undefined && role !== target.role) {
     if (id === session.id) {
@@ -53,8 +65,9 @@ export async function PATCH(
         ...(password && { passwordHash: await hashPassword(password) }),
         ...(role !== undefined && { role }),
         ...(groupId !== undefined && { groupId: groupId || null }),
+        ...(disabled !== undefined && { disabled }),
       },
-      select: { id: true, name: true, email: true, role: true, groupId: true },
+      select: { id: true, name: true, email: true, role: true, groupId: true, disabled: true },
     });
     return NextResponse.json(updated);
   } catch (err: unknown) {

@@ -48,11 +48,6 @@ export default function Navigation() {
           </a>
         </li>
         <li>
-          <a href="/supplements" className="hover:text-red-400">
-            💊 Supplements
-          </a>
-        </li>
-        <li>
           <a href="/progress" className="hover:text-red-400">
             ⚖ Progress
           </a>

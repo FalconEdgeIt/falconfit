@@ -33,7 +33,6 @@ model User {
   workoutDays   WorkoutDay[]
   foodEntries   FoodEntry[]
   weightEntries WeightEntry[]
-  supplements   Supplement[]
   profile       Profile?
 }
 
@@ -118,22 +117,4 @@ model FoodEntry {
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-model Supplement {
-  id    String          @id @default(cuid())
-  name  String
-  order Int             @default(0)
-  logs  SupplementLog[]
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model SupplementLog {
-  id           String     @id @default(cuid())
-  supplementId String
-  supplement   Supplement @relation(fields: [supplementId], references: [id], onDelete: Cascade)
-  date         DateTime
-
-  @@unique([supplementId, date])
 }

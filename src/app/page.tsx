@@ -156,7 +156,6 @@ export default function Home() {
               📅 Schedule Workout
             </button>
             <button className="bg-red-700 px-5 py-3 rounded-lg">Log Food</button>
-            <button className="bg-red-800 px-5 py-3 rounded-lg">Supplements</button>
           </div>
 
           {showScheduler && (

@@ -20,7 +20,7 @@ type WorkoutDay = {
   id: string;
   name: string;
   order: number;
-  fromTrainer: boolean;
+  fromTrainerName: string | null;
   exercises: Exercise[];
 };
 
@@ -459,9 +459,9 @@ export default function WorkoutsPage() {
                   className={`px-4 py-2 rounded-lg ${
                     day.id === selectedDayId ? "bg-red-600" : "text-gray-300"
                   }`}
-                  title={day.fromTrainer ? "From Trainer" : undefined}
+                  title={day.fromTrainerName ? `From ${day.fromTrainerName}` : undefined}
                 >
-                  {day.fromTrainer && "📤 "}
+                  {day.fromTrainerName && "📤 "}
                   {day.name}
                 </button>
               )}
@@ -545,11 +545,11 @@ export default function WorkoutsPage() {
 
         {selectedDay && (
           <div className="bg-gray-800 rounded-xl p-6">
-            <h2 className={`text-2xl font-bold ${selectedDay.fromTrainer ? "mb-1" : "mb-4"}`}>
+            <h2 className={`text-2xl font-bold ${selectedDay.fromTrainerName ? "mb-1" : "mb-4"}`}>
               {selectedDay.name}
             </h2>
-            {selectedDay.fromTrainer && (
-              <p className="text-gray-400 text-sm mb-4">📤 From Trainer</p>
+            {selectedDay.fromTrainerName && (
+              <p className="text-gray-400 text-sm mb-4">📤 From {selectedDay.fromTrainerName}</p>
             )}
 
             <div className="flex gap-3 mb-6">

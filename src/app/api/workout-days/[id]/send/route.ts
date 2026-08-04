@@ -34,7 +34,7 @@ export async function POST(
 
   const group = await prisma.group.findUnique({
     where: { trainerId: session.id },
-    include: { members: { select: { id: true } } },
+    include: { members: { select: { id: true } }, trainer: { select: { name: true } } },
   });
   const validIds = new Set(group?.members.map((m) => m.id) ?? []);
   const targetIds = [...new Set(memberIds)].filter((memberId): memberId is string => validIds.has(memberId as string));
@@ -51,7 +51,7 @@ export async function POST(
           name: day.name,
           order: dayCount,
           userId: memberId,
-          fromTrainer: true,
+          fromTrainerName: group?.trainer.name,
           exercises: {
             create: day.exercises.map((ex) => ({ name: ex.name, order: ex.order })),
           },

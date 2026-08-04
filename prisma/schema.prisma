@@ -47,11 +47,11 @@ model Group {
 }
 
 model WorkoutDay {
-  id          String     @id @default(cuid())
-  name        String
-  order       Int        @default(0)
-  fromTrainer Boolean    @default(false)
-  exercises   Exercise[]
+  id              String     @id @default(cuid())
+  name            String
+  order           Int        @default(0)
+  fromTrainerName String?
+  exercises       Exercise[]
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

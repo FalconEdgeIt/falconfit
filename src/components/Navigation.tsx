@@ -57,6 +57,13 @@ export default function Navigation() {
             ⚙ Settings
           </a>
         </li>
+        {me?.role === "TRAINER" && (
+          <li>
+            <a href="/trainer/group" className="hover:text-red-400">
+              👥 My Group
+            </a>
+          </li>
+        )}
         {me?.role === "ADMIN" && (
           <li>
             <a href="/admin" className="hover:text-red-400">

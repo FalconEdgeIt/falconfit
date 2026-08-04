@@ -49,6 +49,10 @@ export default function WorkoutsPage() {
   const [inputs, setInputs] = useState<Record<string, { weight: string; reps: string; sets: string }>>({});
   const [prFlash, setPrFlash] = useState<Record<string, boolean>>({});
 
+  const [sendPanelDayId, setSendPanelDayId] = useState<string | null>(null);
+  const [sendMemberIds, setSendMemberIds] = useState<string[]>([]);
+  const [sendMessage, setSendMessage] = useState("");
+
   const workoutDaysUrl = (path = "/api/workout-days") =>
     viewingId ? `${path}?userId=${viewingId}` : path;
 
@@ -118,6 +122,37 @@ export default function WorkoutsPage() {
       });
     } catch {
       setError("Couldn't delete that day. Try again.");
+    }
+  };
+
+  const toggleSendPanel = (dayId: string) => {
+    setSendPanelDayId((prev) => (prev === dayId ? null : dayId));
+    setSendMemberIds([]);
+    setSendMessage("");
+  };
+
+  const toggleSendMember = (memberId: string) => {
+    setSendMemberIds((prev) =>
+      prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
+    );
+  };
+
+  const handleSendDay = async (dayId: string) => {
+    if (sendMemberIds.length === 0) return;
+
+    try {
+      const res = await fetch(`/api/workout-days/${dayId}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberIds: sendMemberIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send");
+
+      setSendMessage(`Sent to ${data.sentTo} member${data.sentTo === 1 ? "" : "s"}.`);
+      setSendMemberIds([]);
+    } catch (err) {
+      setSendMessage(err instanceof Error ? err.message : "Couldn't send that workout.");
     }
   };
 
@@ -430,12 +465,67 @@ export default function WorkoutsPage() {
               <button onClick={() => startEditingDay(day)} className="text-gray-400 hover:text-white px-1" title="Rename day">
                 ✎
               </button>
+              {me?.role === "TRAINER" && !viewingId && me.members && me.members.length > 0 && (
+                <button
+                  onClick={() => toggleSendPanel(day.id)}
+                  className="text-gray-400 hover:text-red-400 px-1"
+                  title="Send to Members"
+                >
+                  ➤
+                </button>
+              )}
               <button onClick={() => handleDeleteDay(day.id, day.name)} className="text-gray-400 hover:text-red-400 px-1" title="Delete day">
                 ✕
               </button>
             </div>
           ))}
         </div>
+
+        {sendPanelDayId && (
+          <div className="bg-gray-800 rounded-xl p-6 mb-8">
+            <h3 className="font-semibold mb-3">
+              Send &quot;{days.find((d) => d.id === sendPanelDayId)?.name}&quot; to
+            </h3>
+
+            {sendMessage && <p className="text-green-400 text-sm mb-3">{sendMessage}</p>}
+
+            <div className="flex flex-col gap-2 mb-4">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={sendMemberIds.length === (me?.members?.length || 0)}
+                  onChange={(e) =>
+                    setSendMemberIds(e.target.checked ? me?.members?.map((m) => m.id) || [] : [])
+                  }
+                />
+                Whole Group
+              </label>
+              {me?.members?.map((m) => (
+                <label key={m.id} className="flex items-center gap-2 pl-4 text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={sendMemberIds.includes(m.id)}
+                    onChange={() => toggleSendMember(m.id)}
+                  />
+                  {m.name}
+                </label>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleSendDay(sendPanelDayId)}
+                disabled={sendMemberIds.length === 0}
+                className="bg-red-600 px-4 py-2 rounded disabled:opacity-50"
+              >
+                Send
+              </button>
+              <button onClick={() => setSendPanelDayId(null)} className="text-gray-400 hover:text-white px-2">
+                Close
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-3 mb-8">
           <input

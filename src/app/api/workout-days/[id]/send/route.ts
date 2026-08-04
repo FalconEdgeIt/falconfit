@@ -51,6 +51,7 @@ export async function POST(
           name: day.name,
           order: dayCount,
           userId: memberId,
+          fromTrainer: true,
           exercises: {
             create: day.exercises.map((ex) => ({ name: ex.name, order: ex.order })),
           },

@@ -133,6 +133,21 @@ export default function AdminPage() {
     }
   };
 
+  const handleChangeRole = async (id: string, role: Role) => {
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, ...(role !== "MEMBER" && { groupId: null }) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update user");
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't update that user.");
+    }
+  };
+
   const handleAssignGroup = async (id: string, groupId: string) => {
     try {
       const res = await fetch(`/api/admin/users/${id}`, {
@@ -217,9 +232,15 @@ export default function AdminPage() {
                   <p className="font-semibold">{u.name}</p>
                   <p className="text-gray-400 text-sm">{u.email}</p>
                 </div>
-                <span className="text-xs uppercase tracking-wide bg-gray-600 rounded px-2 py-1">
-                  {u.role}
-                </span>
+                <select
+                  value={u.role}
+                  onChange={(e) => handleChangeRole(u.id, e.target.value as Role)}
+                  className="bg-gray-600 p-1.5 rounded text-xs uppercase tracking-wide"
+                >
+                  <option value="MEMBER">Member</option>
+                  <option value="TRAINER">Trainer</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
                 {u.role === "MEMBER" && (
                   <select
                     value={u.groupId || ""}

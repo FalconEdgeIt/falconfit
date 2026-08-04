@@ -25,6 +25,7 @@ model User {
   name         String
   role         Role     @default(MEMBER)
   disabled     Boolean  @default(false)
+  passwordResetRequestedAt DateTime?
   createdAt    DateTime @default(now())
 
   groupId String?

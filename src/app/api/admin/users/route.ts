@@ -19,6 +19,7 @@ export async function GET() {
       email: true,
       role: true,
       disabled: true,
+      passwordResetRequestedAt: true,
       groupId: true,
       group: { select: { id: true, name: true } },
       ledGroup: { select: { id: true, name: true } },

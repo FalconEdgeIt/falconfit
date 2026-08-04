@@ -62,12 +62,20 @@ export async function PATCH(
       data: {
         ...(name !== undefined && { name }),
         ...(email !== undefined && { email: String(email).toLowerCase() }),
-        ...(password && { passwordHash: await hashPassword(password) }),
+        ...(password && { passwordHash: await hashPassword(password), passwordResetRequestedAt: null }),
         ...(role !== undefined && { role }),
         ...(groupId !== undefined && { groupId: groupId || null }),
         ...(disabled !== undefined && { disabled }),
       },
-      select: { id: true, name: true, email: true, role: true, groupId: true, disabled: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        groupId: true,
+        disabled: true,
+        passwordResetRequestedAt: true,
+      },
     });
     return NextResponse.json(updated);
   } catch (err: unknown) {

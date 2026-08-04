@@ -12,6 +12,7 @@ type AdminUser = {
   email: string;
   role: Role;
   disabled: boolean;
+  passwordResetRequestedAt: string | null;
   groupId: string | null;
   group: { id: string; name: string } | null;
   ledGroup: { id: string; name: string } | null;
@@ -40,6 +41,9 @@ export default function AdminPage() {
 
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupTrainerId, setNewGroupTrainerId] = useState("");
+
+  const [resetPasswordForId, setResetPasswordForId] = useState<string | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
 
   useEffect(() => {
     fetch("/api/me")
@@ -148,6 +152,25 @@ export default function AdminPage() {
     }
   };
 
+  const handleResetPassword = async (id: string) => {
+    if (!resetPasswordValue) return;
+
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: resetPasswordValue }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to reset password");
+      setResetPasswordForId(null);
+      setResetPasswordValue("");
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't reset that password.");
+    }
+  };
+
   const handleAssignGroup = async (id: string, groupId: string) => {
     try {
       const res = await fetch(`/api/admin/users/${id}`, {
@@ -227,10 +250,17 @@ export default function AdminPage() {
 
           <div className="space-y-2 mb-6">
             {users.map((u) => (
-              <div key={u.id} className="flex flex-wrap items-center gap-3 bg-gray-700 rounded-lg p-3">
+              <div key={u.id} className="bg-gray-700 rounded-lg p-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="flex-1 min-w-[160px]">
                   <p className="font-semibold">{u.name}</p>
                   <p className="text-gray-400 text-sm">{u.email}</p>
+                  {u.passwordResetRequestedAt && (
+                    <p className="text-yellow-400 text-xs mt-1">
+                      🔔 Requested a password reset{" "}
+                      {new Date(u.passwordResetRequestedAt).toLocaleString()}
+                    </p>
+                  )}
                 </div>
                 <select
                   value={u.role}
@@ -267,12 +297,40 @@ export default function AdminPage() {
                   Blocked
                 </label>
                 <button
+                  onClick={() => {
+                    setResetPasswordForId(resetPasswordForId === u.id ? null : u.id);
+                    setResetPasswordValue("");
+                  }}
+                  className="text-gray-400 hover:text-red-400 text-sm"
+                >
+                  Reset Password
+                </button>
+                <button
                   onClick={() => handleDeleteUser(u.id, u.name)}
                   className="text-gray-400 hover:text-red-400 px-2"
                   title="Delete user"
                 >
                   ✕
                 </button>
+              </div>
+              {resetPasswordForId === u.id && (
+                <div className="flex gap-2 mt-3 pt-3 border-t border-gray-600">
+                  <input
+                    type="password"
+                    placeholder="New password"
+                    value={resetPasswordValue}
+                    onChange={(e) => setResetPasswordValue(e.target.value)}
+                    autoFocus
+                    className="bg-gray-800 p-1.5 rounded text-sm flex-1 min-w-[140px]"
+                  />
+                  <button
+                    onClick={() => handleResetPassword(u.id)}
+                    className="bg-red-600 px-3 py-1.5 rounded text-sm"
+                  >
+                    Save
+                  </button>
+                </div>
+              )}
               </div>
             ))}
           </div>

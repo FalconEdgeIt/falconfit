@@ -59,6 +59,14 @@ export default function Home() {
   });
   const [scheduleTime, setScheduleTime] = useState("17:00");
 
+  const [showLogFood, setShowLogFood] = useState(false);
+  const [foodName, setFoodName] = useState("");
+  const [foodCalories, setFoodCalories] = useState("");
+  const [foodProtein, setFoodProtein] = useState("");
+  const [foodCarbs, setFoodCarbs] = useState("");
+  const [foodFat, setFoodFat] = useState("");
+  const [foodMessage, setFoodMessage] = useState("");
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -100,6 +108,34 @@ export default function Home() {
 
     loadData();
   }, []);
+
+  const handleLogFood = async () => {
+    if (!foodName.trim() || !foodCalories) return;
+
+    try {
+      const res = await fetch("/api/food", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: foodName.trim(),
+          calories: Number(foodCalories),
+          protein: Number(foodProtein) || 0,
+          carbs: Number(foodCarbs) || 0,
+          fat: Number(foodFat) || 0,
+        }),
+      });
+      if (!res.ok) throw new Error();
+
+      setFoodName("");
+      setFoodCalories("");
+      setFoodProtein("");
+      setFoodCarbs("");
+      setFoodFat("");
+      setFoodMessage(`Logged "${foodName.trim()}"`);
+    } catch {
+      setFoodMessage("Couldn't log that food. Try again.");
+    }
+  };
 
   const selectedDay = days.find((d) => d.id === selectedDayId);
 
@@ -155,8 +191,65 @@ export default function Home() {
             >
               📅 Schedule Workout
             </button>
-            <button className="bg-red-700 px-5 py-3 rounded-lg">Log Food</button>
+            <button
+              onClick={() => {
+                setShowLogFood((prev) => !prev);
+                setFoodMessage("");
+              }}
+              className="bg-red-700 px-5 py-3 rounded-lg"
+            >
+              🍗 Log Food
+            </button>
           </div>
+
+          {showLogFood && (
+            <div className="mt-6 bg-gray-700 rounded-lg p-5">
+              {foodMessage && <p className="text-green-400 text-sm mb-3">{foodMessage}</p>}
+              <div className="flex gap-3 flex-wrap mb-2">
+                <input
+                  type="text"
+                  placeholder="Food name"
+                  value={foodName}
+                  onChange={(e) => setFoodName(e.target.value)}
+                  className="bg-gray-800 p-2 rounded flex-1 min-w-[160px]"
+                />
+                <input
+                  type="number"
+                  placeholder="Calories"
+                  value={foodCalories}
+                  onChange={(e) => setFoodCalories(e.target.value)}
+                  className="bg-gray-800 p-2 rounded w-28"
+                />
+                <input
+                  type="number"
+                  placeholder="Protein (g)"
+                  value={foodProtein}
+                  onChange={(e) => setFoodProtein(e.target.value)}
+                  className="bg-gray-800 p-2 rounded w-28"
+                />
+                <input
+                  type="number"
+                  placeholder="Carbs (g)"
+                  value={foodCarbs}
+                  onChange={(e) => setFoodCarbs(e.target.value)}
+                  className="bg-gray-800 p-2 rounded w-28"
+                />
+                <input
+                  type="number"
+                  placeholder="Fat (g)"
+                  value={foodFat}
+                  onChange={(e) => setFoodFat(e.target.value)}
+                  className="bg-gray-800 p-2 rounded w-28"
+                />
+                <button onClick={handleLogFood} className="bg-red-600 px-4 py-2 rounded">
+                  Add
+                </button>
+              </div>
+              <a href="/nutrition" className="text-sm text-gray-400 hover:text-red-400">
+                View full Nutrition page →
+              </a>
+            </div>
+          )}
 
           {showScheduler && (
             <div className="mt-6 bg-gray-700 rounded-lg p-5">

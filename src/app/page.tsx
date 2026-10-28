@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Navigation from "../components/Navigation";
 import { notifyActivity } from "../components/AchievementToasts";
+import { BOX_STYLES } from "../components/boxStyles";
+import type { Achievement } from "../lib/achievements";
 
 type WeightEntry = {
   id: string;
@@ -67,6 +69,18 @@ export default function Home() {
   const [foodCarbs, setFoodCarbs] = useState("");
   const [foodFat, setFoodFat] = useState("");
   const [foodMessage, setFoodMessage] = useState("");
+
+  const [achievements, setAchievements] = useState<Achievement[] | null>(null);
+
+  // Loaded separately from the rest of the dashboard so a failure here doesn't hide the stats
+  const loadAchievements = () => {
+    fetch(`/api/achievements?tzOffset=${new Date().getTimezoneOffset()}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setAchievements(data))
+      .catch(() => {});
+  };
+
+  useEffect(loadAchievements, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -134,12 +148,22 @@ export default function Home() {
       setFoodFat("");
       setFoodMessage(`Logged "${foodName.trim()}"`);
       notifyActivity();
+      loadAchievements();
     } catch {
       setFoodMessage("Couldn't log that food. Try again.");
     }
   };
 
   const selectedDay = days.find((d) => d.id === selectedDayId);
+
+  const earnedBadges = (achievements ?? []).filter((a) => a.earned);
+  const recentBadges = [...earnedBadges]
+    .sort((a, b) => (b.earnedAt ?? "").localeCompare(a.earnedAt ?? ""))
+    .slice(0, 3);
+  // The locked badge closest to being earned, as a nudge
+  const nextBadge = (achievements ?? [])
+    .filter((a) => !a.earned)
+    .sort((a, b) => b.progress / b.target - a.progress / a.target)[0];
 
   const calendarUrl = selectedDay
     ? buildGoogleCalendarUrl(
@@ -183,6 +207,62 @@ export default function Home() {
             <p className="text-3xl mt-2">{!loaded ? "..." : workoutCount}</p>
           </div>
         </div>
+
+        {achievements && (
+          <div className="mt-8 bg-gray-800 rounded-xl p-6">
+            <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
+              <h2 className="text-2xl font-bold">Recent Badges</h2>
+              <a href="/achievements" className="text-sm text-gray-400 hover:text-red-400">
+                {earnedBadges.length} / {achievements.length} earned →
+              </a>
+            </div>
+
+            {recentBadges.length === 0 ? (
+              <p className="text-gray-500 font-mono text-sm">
+                No badges yet. The System is disappointed but not surprised. Log a workout, champ.
+              </p>
+            ) : (
+              <div className="grid sm:grid-cols-3 gap-3">
+                {recentBadges.map((a) => (
+                  <a
+                    key={a.id}
+                    href="/achievements"
+                    title={a.quip}
+                    className={`flex items-center gap-3 bg-gray-900/60 border-2 ${BOX_STYLES[a.box].border} rounded-lg p-3 hover:bg-gray-900`}
+                  >
+                    <span className="text-3xl">{a.icon}</span>
+                    <span className="min-w-0">
+                      <span className="block font-semibold truncate">{a.name}</span>
+                      <span className={`block text-xs ${BOX_STYLES[a.box].text}`}>
+                        {a.box} Box
+                        {a.earnedAt &&
+                          ` · ${new Date(`${a.earnedAt}T00:00:00`).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                          })}`}
+                      </span>
+                    </span>
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {nextBadge && (
+              <div className="mt-4 flex items-center gap-3 text-sm">
+                <span className="text-gray-400 shrink-0">Next up:</span>
+                <span className="grayscale opacity-60">{nextBadge.icon}</span>
+                <span className="text-gray-300 shrink-0">{nextBadge.name}</span>
+                <span className="text-gray-500 hidden sm:inline truncate">— {nextBadge.description}</span>
+                {nextBadge.target > 1 && (
+                  <span className="ml-auto text-gray-500 shrink-0">
+                    {nextBadge.progress.toLocaleString()} / {nextBadge.target.toLocaleString()}
+                    {nextBadge.unit ? ` ${nextBadge.unit}` : ""}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-8 bg-gray-800 rounded-xl p-6">
           <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>

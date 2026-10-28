@@ -82,6 +82,20 @@ export default function Home() {
 
   useEffect(loadAchievements, []);
 
+  const [cardioWeek, setCardioWeek] = useState<{ minutes: number; sessions: number } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/cardio")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((entries: { date: string; minutes: number }[] | null) => {
+        if (!entries) return;
+        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const recent = entries.filter((e) => new Date(e.date).getTime() >= weekAgo);
+        setCardioWeek({ minutes: recent.reduce((sum, e) => sum + e.minutes, 0), sessions: recent.length });
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -189,7 +203,7 @@ export default function Home() {
           </div>
         )}
 
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-gray-800 rounded-xl p-5">
             <h2 className="text-lg font-semibold">Current Weight</h2>
             <p className="text-3xl mt-2">
@@ -206,6 +220,19 @@ export default function Home() {
             <h2 className="text-lg font-semibold">Workouts</h2>
             <p className="text-3xl mt-2">{!loaded ? "..." : workoutCount}</p>
           </div>
+          <a href="/workouts" className="bg-gray-800 rounded-xl p-5 hover:bg-gray-700/80">
+            <h2 className="text-lg font-semibold">Cardio</h2>
+            <p className="text-3xl mt-2">
+              {!cardioWeek
+                ? "..."
+                : cardioWeek.minutes >= 60
+                  ? `${Math.floor(cardioWeek.minutes / 60)}h ${cardioWeek.minutes % 60}m`
+                  : `${cardioWeek.minutes} min`}
+            </p>
+            <p className="text-gray-400 text-xs mt-1">
+              last 7 days{cardioWeek ? ` · ${cardioWeek.sessions} session${cardioWeek.sessions === 1 ? "" : "s"}` : ""}
+            </p>
+          </a>
         </div>
 
         {achievements && (

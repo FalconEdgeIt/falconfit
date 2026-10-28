@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -35,6 +37,66 @@ type WeightEntry = {
   date: string;
   weight: number;
 };
+
+type CardioEntry = {
+  id: string;
+  date: string;
+  type: string;
+  minutes: number;
+};
+
+const CARDIO_WEEKS = 12;
+
+function formatMinutes(total: number) {
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+
+// Local-time Monday 00:00 of the week containing the given date
+function startOfWeek(date: Date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+}
+
+// Minutes per week for the last CARDIO_WEEKS weeks (including empty ones), oldest first
+function weeklyCardio(entries: CardioEntry[], today: Date) {
+  const thisWeek = startOfWeek(today);
+  const weeks = Array.from({ length: CARDIO_WEEKS }, (_, i) => {
+    const start = new Date(thisWeek);
+    start.setDate(start.getDate() - (CARDIO_WEEKS - 1 - i) * 7);
+    return { start, minutes: 0 };
+  });
+  for (const e of entries) {
+    const week = startOfWeek(new Date(e.date)).getTime();
+    const bucket = weeks.find((w) => w.start.getTime() === week);
+    if (bucket) bucket.minutes += e.minutes;
+  }
+  return weeks.map((w) => ({
+    week: w.start.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+    minutes: w.minutes,
+  }));
+}
+
+function CardioTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: { payload: { week: string; minutes: number } }[];
+}) {
+  if (active && payload && payload.length) {
+    const point = payload[0].payload;
+    return (
+      <div className="bg-gray-800 border border-gray-700 rounded px-3 py-2">
+        <p className="text-gray-300 text-sm">Week of {point.week}</p>
+        <p className="text-red-400 font-semibold">{formatMinutes(point.minutes)}</p>
+      </div>
+    );
+  }
+  return null;
+}
 
 function estimated1RM(weight: number, reps: number) {
   return weight * (1 + reps / 30);
@@ -73,6 +135,8 @@ export default function ProgressPage() {
   const [days, setDays] = useState<WorkoutDay[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [weightLog, setWeightLog] = useState<WeightEntry[]>([]);
+  const [cardioLog, setCardioLog] = useState<CardioEntry[]>([]);
+  const [today] = useState(() => new Date());
 
   const [me, setMe] = useState<Me | null>(null);
   const [viewingId, setViewingId] = useState("");
@@ -91,17 +155,19 @@ export default function ProgressPage() {
 
   const loadData = async () => {
     try {
-      const [daysRes, historyRes, weightRes] = await Promise.all([
+      const [daysRes, historyRes, weightRes, cardioRes] = await Promise.all([
         fetch(withViewer("/api/workout-days")),
         fetch(withViewer("/api/history")),
         fetch(withViewer("/api/weight")),
+        fetch(withViewer("/api/cardio")),
       ]);
 
-      if (!daysRes.ok || !historyRes.ok || !weightRes.ok) throw new Error();
+      if (!daysRes.ok || !historyRes.ok || !weightRes.ok || !cardioRes.ok) throw new Error();
 
       setDays(await daysRes.json());
       setHistory(await historyRes.json());
       setWeightLog(await weightRes.json());
+      setCardioLog(await cardioRes.json());
     } catch {
       setError("Couldn't load your progress data. Check your connection and try refreshing.");
     } finally {
@@ -151,6 +217,17 @@ export default function ProgressPage() {
     date: formatDate(entry.date),
     weight: entry.weight,
   }));
+
+  const cardioChartData = weeklyCardio(cardioLog, today);
+  const cardioByType = Object.entries(
+    cardioLog.reduce<Record<string, { minutes: number; sessions: number }>>((acc, e) => {
+      acc[e.type] ??= { minutes: 0, sessions: 0 };
+      acc[e.type].minutes += e.minutes;
+      acc[e.type].sessions += 1;
+      return acc;
+    }, {})
+  ).sort((a, b) => b[1].minutes - a[1].minutes);
+  const cardioTotal = cardioLog.reduce((sum, e) => sum + e.minutes, 0);
 
   const bestByExercise: Record<string, number> = {};
   history.forEach((entry) => {
@@ -243,6 +320,61 @@ export default function ProgressPage() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+          )}
+        </div>
+
+        <div className="bg-gray-800 rounded-xl p-6 mb-8">
+          <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
+            <h2 className="text-2xl font-bold">Cardio</h2>
+            {cardioLog.length > 0 && (
+              <p className="text-gray-400 text-sm">
+                All time: <span className="text-white font-semibold">{formatMinutes(cardioTotal)}</span> over{" "}
+                {cardioLog.length} session{cardioLog.length === 1 ? "" : "s"}
+              </p>
+            )}
+          </div>
+
+          {cardioLog.length === 0 ? (
+            <p className="text-gray-500">No cardio logged yet — add sessions on the Workouts page.</p>
+          ) : (
+            <>
+              <p className="text-gray-400 text-sm mb-2">Minutes per week (last {CARDIO_WEEKS} weeks)</p>
+              <div style={{ width: "100%", height: 220 }}>
+                <ResponsiveContainer>
+                  <BarChart data={cardioChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                    <XAxis dataKey="week" stroke="#9ca3af" fontSize={12} />
+                    <YAxis stroke="#9ca3af" allowDecimals={false} />
+                    <Tooltip content={<CardioTooltip />} cursor={{ fill: "#37415155" }} />
+                    <Bar dataKey="minutes" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <h3 className="text-lg font-semibold mt-6 mb-3">By Type</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="text-gray-400 text-sm border-b border-gray-700">
+                      <th className="py-2 pr-4">Type</th>
+                      <th className="py-2 pr-4">Sessions</th>
+                      <th className="py-2 pr-4">Total Time</th>
+                      <th className="py-2 pr-4">Avg / Session</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cardioByType.map(([type, { minutes, sessions }]) => (
+                      <tr key={type} className="border-b border-gray-700/50">
+                        <td className="py-2 pr-4">{type}</td>
+                        <td className="py-2 pr-4">{sessions}</td>
+                        <td className="py-2 pr-4">{formatMinutes(minutes)}</td>
+                        <td className="py-2 pr-4 text-gray-300">{formatMinutes(Math.round(minutes / sessions))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
 

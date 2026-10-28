@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navigation from "../../../components/Navigation";
+import type { MemberCardio } from "../../api/trainer/group/route";
 
 type Member = { id: string; name: string; email: string };
 
@@ -17,11 +18,18 @@ type WorkoutDay = {
   name: string;
 };
 
+function formatMinutes(total: number) {
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+
 export default function TrainerGroupPage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
   const [group, setGroup] = useState<Group | null>(null);
   const [availableMembers, setAvailableMembers] = useState<Member[]>([]);
+  const [cardio, setCardio] = useState<Record<string, MemberCardio>>({});
   const [days, setDays] = useState<WorkoutDay[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -55,6 +63,7 @@ export default function TrainerGroupPage() {
       const groupData = await groupRes.json();
       setGroup(groupData.group);
       setAvailableMembers(groupData.availableMembers);
+      setCardio(groupData.cardio ?? {});
       setDays(await daysRes.json());
     } catch {
       setError("Couldn't load your Group. Check your connection and try refreshing.");
@@ -66,6 +75,11 @@ export default function TrainerGroupPage() {
   useEffect(() => {
     if (authChecked) loadData();
   }, [authChecked]);
+
+  const groupCardioMinutes = Object.values(cardio).reduce((sum, c) => sum + c.weekMinutes, 0);
+  const topCardioId = Object.entries(cardio)
+    .filter(([, c]) => c.weekMinutes > 0)
+    .sort((a, b) => b[1].weekMinutes - a[1].weekMinutes)[0]?.[0];
 
   const handleAddMember = async () => {
     if (!addMemberId) return;
@@ -165,7 +179,15 @@ export default function TrainerGroupPage() {
         ) : (
           <>
             <div className="bg-gray-800 rounded-xl p-6 mb-8">
-              <h2 className="text-2xl font-bold mb-4">{group.name}</h2>
+              <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
+                <h2 className="text-2xl font-bold">{group.name}</h2>
+                {group.members.length > 0 && (
+                  <p className="text-gray-400 text-sm">
+                    🏃 Group cardio, last 7 days:{" "}
+                    <span className="text-white font-semibold">{formatMinutes(groupCardioMinutes)}</span>
+                  </p>
+                )}
+              </div>
 
               {group.members.length === 0 && (
                 <p className="text-gray-500 mb-4">No members yet — add one below.</p>
@@ -177,9 +199,34 @@ export default function TrainerGroupPage() {
                     key={m.id}
                     className="bg-gray-700 rounded-lg p-3 flex items-center justify-between"
                   >
-                    <div>
-                      <p className="font-semibold">{m.name}</p>
+                    <div className="min-w-0">
+                      <p className="font-semibold">
+                        {m.name}
+                        {m.id === topCardioId && (
+                          <span className="ml-2 text-xs bg-red-900/60 text-red-300 rounded-full px-2 py-0.5">
+                            🔥 Top cardio this week
+                          </span>
+                        )}
+                      </p>
                       <p className="text-gray-400 text-sm">{m.email}</p>
+                      <p className="text-gray-300 text-sm mt-1">
+                        {cardio[m.id]?.lastDate ? (
+                          <>
+                            🏃 {formatMinutes(cardio[m.id].weekMinutes)} this week
+                            <span className="text-gray-500">
+                              {" "}
+                              · {cardio[m.id].weekSessions} session{cardio[m.id].weekSessions === 1 ? "" : "s"} · last:{" "}
+                              {cardio[m.id].lastType},{" "}
+                              {new Date(cardio[m.id].lastDate!).toLocaleDateString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-gray-500">🏃 No cardio logged yet</span>
+                        )}
+                      </p>
                     </div>
                     <button
                       onClick={() => handleRemoveMember(m.id, m.name)}

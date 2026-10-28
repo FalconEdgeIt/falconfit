@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import AchievementToasts from "./AchievementToasts";
 
 type Me = {
+  id: string;
   name: string;
   role: "ADMIN" | "TRAINER" | "MEMBER";
 };
@@ -53,6 +55,11 @@ export default function Navigation() {
           </a>
         </li>
         <li>
+          <a href="/achievements" className="hover:text-red-400">
+            🏅 Achievements
+          </a>
+        </li>
+        <li>
           <a href="/settings" className="hover:text-red-400">
             ⚙ Settings
           </a>
@@ -82,6 +89,7 @@ export default function Navigation() {
           </>
         )}
       </ul>
+      {me && <AchievementToasts userId={me.id} />}
     </nav>
   );
 }

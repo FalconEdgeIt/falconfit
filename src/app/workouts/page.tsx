@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Navigation from "../../components/Navigation";
+import { notifyActivity } from "../../components/AchievementToasts";
 
 type Exercise = {
   id: string;
@@ -362,6 +363,7 @@ export default function WorkoutsPage() {
       );
 
       setInputs((prev) => ({ ...prev, [exerciseId]: { weight: "", reps: "", sets: "" } }));
+      notifyActivity();
 
       if (isNewPR) {
         setPrFlash((prev) => ({ ...prev, [exerciseId]: true }));

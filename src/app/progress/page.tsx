@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import Navigation from "../../components/Navigation";
+import { notifyActivity } from "../../components/AchievementToasts";
 
 type WorkoutDay = {
   id: string;
@@ -140,6 +141,7 @@ export default function ProgressPage() {
         );
       });
       setNewWeight("");
+      notifyActivity();
     } catch {
       setError("Couldn't save that weigh-in. Try again.");
     }

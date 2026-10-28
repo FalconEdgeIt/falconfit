@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Navigation from "../components/Navigation";
+import { notifyActivity } from "../components/AchievementToasts";
 
 type WeightEntry = {
   id: string;
@@ -132,6 +133,7 @@ export default function Home() {
       setFoodCarbs("");
       setFoodFat("");
       setFoodMessage(`Logged "${foodName.trim()}"`);
+      notifyActivity();
     } catch {
       setFoodMessage("Couldn't log that food. Try again.");
     }

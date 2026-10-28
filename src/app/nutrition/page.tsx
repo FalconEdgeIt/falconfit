@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Navigation from "../../components/Navigation";
+import { notifyActivity } from "../../components/AchievementToasts";
 
 type FoodEntry = {
   id: string;
@@ -114,6 +115,7 @@ export default function NutritionPage() {
       const newEntry: FoodEntry = await res.json();
 
       setEntries((prev) => [newEntry, ...prev]);
+      notifyActivity();
       setName("");
       setCalories("");
       setProtein("");

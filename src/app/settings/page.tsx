@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Navigation from "../../components/Navigation";
+import { notifyActivity } from "../../components/AchievementToasts";
 
 type Profile = {
   id: string;
@@ -98,6 +99,7 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error();
 
       setSaved(true);
+      notifyActivity();
       setTimeout(() => setSaved(false), 3000);
     } catch {
       setError("Couldn't save your profile. Try again.");

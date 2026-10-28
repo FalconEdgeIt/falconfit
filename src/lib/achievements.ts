@@ -3,7 +3,7 @@ import { prisma } from "./prisma";
 // Achievements are derived from existing activity data rather than stored, so they apply
 // retroactively and can never drift out of sync with what a user has actually logged.
 
-export type AchievementCategory = "Workouts" | "Consistency" | "Strength" | "Body Weight" | "Nutrition";
+export type AchievementCategory = "Workouts" | "Consistency" | "Strength" | "Cardio" | "Body Weight" | "Nutrition";
 
 // Loot box rarity awarded with each badge — purely cosmetic, lowest to highest
 export type BoxTier = "Bronze" | "Silver" | "Gold" | "Platinum" | "Legendary";
@@ -107,17 +107,17 @@ const WORKOUT_TIERS = tiers({ idPrefix: "workouts", category: "Workouts" }, [
 const STREAK_TIERS = tiers({ idPrefix: "week-streak", category: "Consistency" }, [
   {
     target: 2, name: "Back for More", icon: "🔁", box: "Bronze",
-    description: "Work out 2 weeks in a row",
+    description: "Lift or do cardio 2 weeks in a row",
     quip: "Most gym rats mysteriously \"get busy\" after week one. You did not. Suspicious.",
   },
   {
     target: 4, name: "The Grind Is Real", icon: "🔥", box: "Silver",
-    description: "Work out 4 weeks in a row",
+    description: "Lift or do cardio 4 weeks in a row",
     quip: "Four straight weeks. Your couch has filed a missing persons report.",
   },
   {
     target: 12, name: "Unkillable", icon: "⚡", box: "Platinum",
-    description: "Work out 12 weeks in a row",
+    description: "Lift or do cardio 12 weeks in a row",
     quip: "Twelve consecutive weeks. Rest days are still allowed, you absolute lunatic.",
   },
 ]);
@@ -214,12 +214,58 @@ const PROTEIN_TIERS = tiers({ idPrefix: "protein-days", category: "Nutrition" },
   },
 ]);
 
+const CARDIO_SESSION: Definition = {
+  id: "cardio-sessions-1",
+  category: "Cardio",
+  name: "Cardio? On Purpose?",
+  icon: "🏃",
+  box: "Bronze",
+  description: "Log your first cardio session",
+  quip: "You did cardio voluntarily. The System has flagged this as highly unusual behavior for a gym rat.",
+  target: 1,
+};
+
+// Cardio time tiers count in whole hours
+const CARDIO_TIME_TIERS = tiers({ idPrefix: "cardio-hours", category: "Cardio" }, [
+  {
+    target: 5, name: "Heart of a Champ", icon: "❤️", box: "Silver",
+    description: "Log 5 hours of cardio",
+    quip: "Five hours of cardio. Your heart is now slightly less annoyed with you.",
+  },
+  {
+    target: 25, name: "Lungs of Steel", icon: "🫁", box: "Gold",
+    description: "Log 25 hours of cardio",
+    quip: "Twenty-five hours. You can now climb stairs without negotiating with them first.",
+  },
+  {
+    target: 100, name: "Endurance Beast", icon: "🦌", box: "Legendary",
+    description: "Log 100 hours of cardio",
+    quip: "One hundred hours of cardio. Treadmills across the land whisper your name in fear.",
+  },
+], "hrs");
+
+const CARDIO_VARIETY: Definition = {
+  id: "cardio-types-5",
+  category: "Cardio",
+  name: "Cardio Connoisseur",
+  icon: "🎡",
+  box: "Silver",
+  description: "Try 5 different types of cardio",
+  quip: "Five kinds of cardio. You're not running from your problems, iron warrior — you're cycling, rowing and swimming from them too.",
+  target: 5,
+};
+
 export async function computeAchievements(userId: string, tzOffset = 0): Promise<Achievement[]> {
-  const [setLogs, weightEntries, foodEntries, profile] = await Promise.all([
+  const [setLogs, cardioEntries, weightEntries, foodEntries, profile] = await Promise.all([
     prisma.setLog.findMany({
       where: { exercise: { day: { userId } } },
       orderBy: { date: "asc" },
       select: { exerciseId: true, date: true, weight: true, reps: true, sets: true },
+    }),
+    prisma.cardioEntry.findMany({
+      where: { userId },
+      orderBy: { date: "asc" },
+      select: { date: true, type: true, minutes: true },
     }),
     prisma.weightEntry.findMany({ where: { userId }, orderBy: { date: "asc" } }),
     prisma.foodEntry.findMany({
@@ -233,12 +279,16 @@ export async function computeAchievements(userId: string, tzOffset = 0): Promise
   // Workouts: distinct local days with at least one logged set
   const workoutDays: Timeline = [...new Set(setLogs.map((l) => localDay(l.date, tzOffset)))];
 
-  // Consistency: the running longest streak of consecutive weeks containing a workout
+  // Consistency: the running longest streak of consecutive weeks containing a lifting or
+  // cardio session
   const streakTimeline: Timeline = [];
   {
+    const activeDays = [
+      ...new Set([...workoutDays, ...cardioEntries.map((c) => localDay(c.date, tzOffset))]),
+    ].sort();
     let current = 0;
     let prevWeek: string | null = null;
-    for (const day of workoutDays) {
+    for (const day of activeDays) {
       const week = weekStart(day);
       if (week === prevWeek) continue;
       current = prevWeek && addDays(prevWeek, 7) === week ? current + 1 : 1;
@@ -272,6 +322,33 @@ export async function computeAchievements(userId: string, tzOffset = 0): Promise
     }
   }
 
+  const cardioSessionTimeline: Timeline = cardioEntries.map((c) => localDay(c.date, tzOffset));
+
+  // Cardio time: one timeline entry per full hour logged
+  const cardioHourTimeline: Timeline = [];
+  {
+    let total = 0;
+    for (const c of cardioEntries) {
+      total += c.minutes;
+      while (cardioHourTimeline.length < Math.floor(total / 60)) {
+        cardioHourTimeline.push(localDay(c.date, tzOffset));
+      }
+    }
+  }
+
+  // Cardio variety: the day each new type was first tried
+  const cardioTypeTimeline: Timeline = [];
+  {
+    const seen = new Set<string>();
+    for (const c of cardioEntries) {
+      const t = c.type.toLowerCase();
+      if (!seen.has(t)) {
+        seen.add(t);
+        cardioTypeTimeline.push(localDay(c.date, tzOffset));
+      }
+    }
+  }
+
   const weighInTimeline: Timeline = weightEntries.map((e) => localDay(e.date, 0));
 
   // Goal weight: reached once a weigh-in lands on the far side of the goal from the first
@@ -301,6 +378,9 @@ export async function computeAchievements(userId: string, tzOffset = 0): Promise
     ...STREAK_TIERS.map((d) => fromTimeline(d, streakTimeline)),
     ...PR_TIERS.map((d) => fromTimeline(d, prTimeline)),
     ...VOLUME_TIERS.map((d) => fromTimeline(d, volumeTimeline)),
+    fromTimeline(CARDIO_SESSION, cardioSessionTimeline),
+    ...CARDIO_TIME_TIERS.map((d) => fromTimeline(d, cardioHourTimeline)),
+    fromTimeline(CARDIO_VARIETY, cardioTypeTimeline),
     ...WEIGH_IN_TIERS.map((d) => fromTimeline(d, weighInTimeline)),
     fromTimeline(GOAL_WEIGHT, goalTimeline),
     ...FOOD_TIERS.map((d) => fromTimeline(d, foodTimeline)),

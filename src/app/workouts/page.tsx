@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Navigation from "../../components/Navigation";
 import { notifyActivity } from "../../components/AchievementToasts";
+import { EXERCISE_LIBRARY } from "../../lib/exerciseLibrary";
+import CardioLog from "../../components/CardioLog";
 
 type Exercise = {
   id: string;
@@ -41,6 +43,7 @@ export default function WorkoutsPage() {
 
   const [newDayName, setNewDayName] = useState("");
   const [newExerciseName, setNewExerciseName] = useState("");
+  const [customExercise, setCustomExercise] = useState(false);
 
   const [editingDayId, setEditingDayId] = useState<string | null>(null);
   const [editingDayName, setEditingDayName] = useState("");
@@ -233,6 +236,7 @@ export default function WorkoutsPage() {
         )
       );
       setNewExerciseName("");
+      setCustomExercise(false);
     } catch {
       setError("Couldn't add that exercise. Try again.");
     }
@@ -554,14 +558,45 @@ export default function WorkoutsPage() {
               <p className="text-gray-400 text-sm mb-4">📤 From {selectedDay.fromTrainerName}</p>
             )}
 
-            <div className="flex gap-3 mb-6">
-              <input
-                type="text"
-                placeholder="New exercise name (e.g. Bench Press)"
-                value={newExerciseName}
-                onChange={(e) => setNewExerciseName(e.target.value)}
-                className="bg-gray-700 p-2 rounded flex-1"
-              />
+            <div className="flex gap-3 mb-6 flex-wrap">
+              <select
+                value={customExercise ? "__custom" : newExerciseName}
+                onChange={(e) => {
+                  const isCustom = e.target.value === "__custom";
+                  setCustomExercise(isCustom);
+                  setNewExerciseName(isCustom ? "" : e.target.value);
+                }}
+                className="bg-gray-700 p-2 rounded flex-1 min-w-[200px]"
+              >
+                <option value="">Choose an exercise…</option>
+                {EXERCISE_LIBRARY.map(({ group, exercises }) => (
+                  <optgroup key={group} label={group}>
+                    {exercises.map((name) => {
+                      const alreadyAdded = selectedDay.exercises.some(
+                        (ex) => ex.name.toLowerCase() === name.toLowerCase()
+                      );
+                      return (
+                        <option key={name} value={name} disabled={alreadyAdded}>
+                          {name}
+                          {alreadyAdded ? " (added)" : ""}
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                ))}
+                <option value="__custom">✏️ Custom exercise…</option>
+              </select>
+              {customExercise && (
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Custom exercise name"
+                  value={newExerciseName}
+                  onChange={(e) => setNewExerciseName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddExercise()}
+                  className="bg-gray-700 p-2 rounded flex-1 min-w-[200px]"
+                />
+              )}
               <button onClick={handleAddExercise} className="bg-red-800 px-4 py-2 rounded">
                 Add Exercise
               </button>
@@ -664,6 +699,8 @@ export default function WorkoutsPage() {
             </div>
           </div>
         )}
+
+        <CardioLog viewingId={viewingId} />
       </div>
     </main>
   );

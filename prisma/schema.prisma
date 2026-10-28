@@ -35,6 +35,7 @@ model User {
   workoutDays   WorkoutDay[]
   foodEntries   FoodEntry[]
   weightEntries WeightEntry[]
+  cardioEntries CardioEntry[]
   profile       Profile?
 }
 
@@ -120,4 +121,16 @@ model FoodEntry {
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CardioEntry {
+  id      String   @id @default(cuid())
+  date    DateTime @default(now())
+  type    String
+  minutes Int
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
 }

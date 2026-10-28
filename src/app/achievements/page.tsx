@@ -5,7 +5,7 @@ import Navigation from "../../components/Navigation";
 import type { Achievement, AchievementCategory } from "../../lib/achievements";
 import { BOX_STYLES, BOX_ORDER } from "../../components/boxStyles";
 
-const CATEGORIES: AchievementCategory[] = ["Workouts", "Consistency", "Strength", "Body Weight", "Nutrition"];
+const CATEGORIES: AchievementCategory[] = ["Workouts", "Consistency", "Strength", "Cardio", "Body Weight", "Nutrition"];
 
 type Me = {
   role: "ADMIN" | "TRAINER" | "MEMBER";

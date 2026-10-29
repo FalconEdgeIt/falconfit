@@ -105,9 +105,19 @@ const WORKOUT_TIERS = tiers({ idPrefix: "workouts", category: "Workouts" }, [
     quip: "You now spend more time near the squat rack than near sunlight. The goblins have accepted you as one of their own.",
   },
   {
-    target: 100, name: "Centurion of Iron", icon: "🛡️", box: "Legendary",
+    target: 100, name: "Centurion of Iron", icon: "🛡️", box: "Platinum",
     description: "Log 100 workouts",
     quip: "One hundred workouts. The System has run out of sarcastic things to say. That's a lie. But it is impressed. Briefly.",
+  },
+  {
+    target: 150, name: "Officially Pumped (Hans & Franz Approved)", icon: "💪", box: "Legendary",
+    description: "Log 150 workouts",
+    quip: "Ja! Two very large Austrian gentlemen in very small sweatsuits have reviewed your 150 workouts and agree: you have been sufficiently pumped. You are no longer a flabby little noodle-arm. Hear the System now, flex later.",
+  },
+  {
+    target: 200, name: "The Incredible Bulk", icon: "💚", box: "Legendary",
+    description: "Log 200 workouts",
+    quip: "Two hundred workouts. Somewhere in 1978, a man covered head to toe in green body paint just nodded at you in slow motion. Please stop ripping your shirts every leg day, champ. The System is not paying for those.",
   },
 ]);
 

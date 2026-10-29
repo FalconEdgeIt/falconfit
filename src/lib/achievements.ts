@@ -17,14 +17,17 @@ export type Achievement = {
   icon: string;
   category: AchievementCategory;
   earned: boolean;
-  earnedAt: string | null; // YYYY-MM-DD (user's local day)
+  earnedAt: string | null; // YYYY-MM-DD (user's local day) first earned
+  lastEarnedAt: string | null; // most recent time earned (same as earnedAt unless repeatable)
+  repeatable?: boolean; // earned again every time it happens (each PR, each cardio session…)
+  timesEarned: number;
   progress: number;
   target: number;
   unit?: string; // shown after progress numbers, e.g. "k lbs"
 };
 
-type Definition = Omit<Achievement, "earned" | "earnedAt" | "progress">;
-type Level = Pick<Achievement, "target" | "name" | "icon" | "description" | "quip" | "box">;
+type Definition = Omit<Achievement, "earned" | "earnedAt" | "lastEarnedAt" | "timesEarned" | "progress">;
+type Level = Pick<Achievement, "target" | "name" | "icon" | "description" | "quip" | "box" | "repeatable">;
 
 // A sorted list of the local days on which a running total ticks up, so "earned on" can be
 // read off as the day the total first reached the target.
@@ -55,10 +58,14 @@ function addDays(day: string, n: number) {
 
 function fromTimeline(def: Definition, timeline: Timeline): Achievement {
   const earned = timeline.length >= def.target;
+  // A repeatable badge (always target 1) is earned once per timeline entry
+  const timesEarned = !earned ? 0 : def.repeatable ? timeline.length : 1;
   return {
     ...def,
     earned,
     earnedAt: earned ? timeline[def.target - 1] : null,
+    lastEarnedAt: earned ? (def.repeatable ? timeline[timeline.length - 1] : timeline[def.target - 1]) : null,
+    timesEarned,
     progress: Math.min(timeline.length, def.target),
   };
 }
@@ -124,8 +131,8 @@ const STREAK_TIERS = tiers({ idPrefix: "week-streak", category: "Consistency" },
 
 const PR_TIERS = tiers({ idPrefix: "prs", category: "Strength" }, [
   {
-    target: 1, name: "Stronger Than Yesterday", icon: "🏆", box: "Bronze",
-    description: "Beat a previous best on any exercise",
+    target: 1, name: "Stronger Than Yesterday", icon: "🏆", box: "Bronze", repeatable: true,
+    description: "Beat a previous best on any exercise (earned every PR)",
     quip: "You broke a record. The previous record holder (also you) has been notified and is devastated.",
   },
   {
@@ -203,8 +210,8 @@ const FOOD_TIERS = tiers({ idPrefix: "food-days", category: "Nutrition" }, [
 
 const PROTEIN_TIERS = tiers({ idPrefix: "protein-days", category: "Nutrition" }, [
   {
-    target: 1, name: "Gains Fueled", icon: "🍗", box: "Bronze",
-    description: "Hit your daily protein target",
+    target: 1, name: "Gains Fueled", icon: "🍗", box: "Bronze", repeatable: true,
+    description: "Hit your daily protein target (earned every day you do)",
     quip: "Protein target hit. Your muscles sent a thank-you card. It's mostly grunting.",
   },
   {
@@ -220,7 +227,8 @@ const CARDIO_SESSION: Definition = {
   name: "Cardio? On Purpose?",
   icon: "🏃",
   box: "Bronze",
-  description: "Log your first cardio session",
+  description: "Log a cardio session",
+  repeatable: true,
   quip: "You did cardio voluntarily. The System has flagged this as highly unusual behavior for a gym rat.",
   target: 1,
 };

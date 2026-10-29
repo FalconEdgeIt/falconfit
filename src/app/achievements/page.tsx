@@ -54,7 +54,7 @@ export default function AchievementsPage() {
   const earnedCount = achievements.filter((a) => a.earned).length;
   const recent = achievements
     .filter((a) => a.earned)
-    .sort((a, b) => (b.earnedAt ?? "").localeCompare(a.earnedAt ?? ""))
+    .sort((a, b) => (b.lastEarnedAt ?? "").localeCompare(a.lastEarnedAt ?? ""))
     .slice(0, 3);
 
   if (!loaded) {
@@ -128,7 +128,10 @@ export default function AchievementsPage() {
             ) : (
               <div className="flex flex-wrap gap-2">
                 {BOX_ORDER.map((tier) => {
-                  const count = achievements.filter((a) => a.earned && a.box === tier).length;
+                  // Repeatable badges award a box every time they're earned
+                  const count = achievements
+                    .filter((a) => a.box === tier)
+                    .reduce((sum, a) => sum + a.timesEarned, 0);
                   if (count === 0) return null;
                   return (
                     <span
@@ -156,11 +159,19 @@ export default function AchievementsPage() {
                   {items.map((a) => (
                     <div
                       key={a.id}
-                      className={`rounded-xl p-4 text-center border ${
+                      className={`relative rounded-xl p-4 text-center border ${
                         a.earned ? `bg-gray-800 border-2 ${BOX_STYLES[a.box].border}` : "bg-gray-800/50 border-gray-700"
                       }`}
                       title={a.description}
                     >
+                      {a.repeatable && a.timesEarned > 0 && (
+                        <span
+                          className="absolute top-2 right-2 bg-green-900/70 text-green-300 text-xs font-semibold rounded-full px-2 py-0.5"
+                          title={`Earned ${a.timesEarned} time${a.timesEarned === 1 ? "" : "s"}`}
+                        >
+                          ✓×{a.timesEarned}
+                        </span>
+                      )}
                       <div className={`text-4xl mb-2 ${a.earned ? "" : "grayscale opacity-40"}`}>{a.icon}</div>
                       <p className={`font-semibold ${a.earned ? "" : "text-gray-400"}`}>{a.name}</p>
                       {a.earned ? (
@@ -170,9 +181,15 @@ export default function AchievementsPage() {
                       )}
 
                       {a.earned ? (
-                        <p className={`text-xs mt-3 ${BOX_STYLES[a.box].text}`}>
-                          {a.box} Box · {a.earnedAt && formatDate(a.earnedAt)}
-                        </p>
+                        <>
+                          <p className={`text-xs mt-3 ${BOX_STYLES[a.box].text}`}>
+                            {a.box} Box
+                            {a.repeatable
+                              ? a.lastEarnedAt && ` · last ${formatDate(a.lastEarnedAt)}`
+                              : a.earnedAt && ` · ${formatDate(a.earnedAt)}`}
+                          </p>
+                          {a.repeatable && <p className="text-gray-500 text-xs mt-1">🔁 Earn it again anytime</p>}
+                        </>
                       ) : a.target > 1 ? (
                         <div className="mt-3">
                           <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
@@ -187,7 +204,9 @@ export default function AchievementsPage() {
                           </p>
                         </div>
                       ) : (
-                        <p className="text-gray-500 text-xs mt-3">🔒 Locked · {a.box} Box</p>
+                        <p className="text-gray-500 text-xs mt-3">
+                          🔒 Locked · {a.box} Box{a.repeatable ? " · 🔁 repeatable" : ""}
+                        </p>
                       )}
                     </div>
                   ))}

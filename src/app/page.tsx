@@ -172,7 +172,7 @@ export default function Home() {
 
   const earnedBadges = (achievements ?? []).filter((a) => a.earned);
   const recentBadges = [...earnedBadges]
-    .sort((a, b) => (b.earnedAt ?? "").localeCompare(a.earnedAt ?? ""))
+    .sort((a, b) => (b.lastEarnedAt ?? "").localeCompare(a.lastEarnedAt ?? ""))
     .slice(0, 3);
   // The locked badge closest to being earned, as a nudge
   const nextBadge = (achievements ?? [])
@@ -259,11 +259,16 @@ export default function Home() {
                   >
                     <span className="text-3xl">{a.icon}</span>
                     <span className="min-w-0">
-                      <span className="block font-semibold truncate">{a.name}</span>
+                      <span className="block font-semibold truncate">
+                        {a.name}
+                        {a.repeatable && a.timesEarned > 1 && (
+                          <span className="ml-1 text-green-300 text-xs">✓×{a.timesEarned}</span>
+                        )}
+                      </span>
                       <span className={`block text-xs ${BOX_STYLES[a.box].text}`}>
                         {a.box} Box
-                        {a.earnedAt &&
-                          ` · ${new Date(`${a.earnedAt}T00:00:00`).toLocaleDateString(undefined, {
+                        {a.lastEarnedAt &&
+                          ` · ${new Date(`${a.lastEarnedAt}T00:00:00`).toLocaleDateString(undefined, {
                             month: "short",
                             day: "numeric",
                           })}`}

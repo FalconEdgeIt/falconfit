@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Navigation from "../../components/Navigation";
+import FoodFinder, { type NewFood } from "../../components/FoodFinder";
 import { notifyActivity } from "../../components/AchievementToasts";
 
 type FoodEntry = {
@@ -69,12 +70,6 @@ export default function NutritionPage() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
 
-  const [name, setName] = useState("");
-  const [calories, setCalories] = useState("");
-  const [protein, setProtein] = useState("");
-  const [carbs, setCarbs] = useState("");
-  const [fat, setFat] = useState("");
-
   const loadData = async () => {
     try {
       const [foodRes, profileRes] = await Promise.all([
@@ -96,33 +91,22 @@ export default function NutritionPage() {
     loadData();
   }, []);
 
-  const handleAdd = async () => {
-    if (!name.trim() || !calories) return;
-
+  const handleLog = async (food: NewFood) => {
     try {
       const res = await fetch("/api/food", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          calories: Number(calories),
-          protein: Number(protein) || 0,
-          carbs: Number(carbs) || 0,
-          fat: Number(fat) || 0,
-        }),
+        body: JSON.stringify(food),
       });
       if (!res.ok) throw new Error();
       const newEntry: FoodEntry = await res.json();
 
       setEntries((prev) => [newEntry, ...prev]);
       notifyActivity();
-      setName("");
-      setCalories("");
-      setProtein("");
-      setCarbs("");
-      setFat("");
+      return true;
     } catch {
       setError("Couldn't add that food. Try again.");
+      return false;
     }
   };
 
@@ -211,50 +195,7 @@ export default function NutritionPage() {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-xl p-6 mb-8">
-          <h2 className="text-2xl font-bold mb-4">Log Food</h2>
-
-          <div className="flex gap-3 flex-wrap mb-2">
-            <input
-              type="text"
-              placeholder="Food name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="bg-gray-700 p-2 rounded flex-1 min-w-[160px]"
-            />
-            <input
-              type="number"
-              placeholder="Calories"
-              value={calories}
-              onChange={(e) => setCalories(e.target.value)}
-              className="bg-gray-700 p-2 rounded w-28"
-            />
-            <input
-              type="number"
-              placeholder="Protein (g)"
-              value={protein}
-              onChange={(e) => setProtein(e.target.value)}
-              className="bg-gray-700 p-2 rounded w-28"
-            />
-            <input
-              type="number"
-              placeholder="Carbs (g)"
-              value={carbs}
-              onChange={(e) => setCarbs(e.target.value)}
-              className="bg-gray-700 p-2 rounded w-28"
-            />
-            <input
-              type="number"
-              placeholder="Fat (g)"
-              value={fat}
-              onChange={(e) => setFat(e.target.value)}
-              className="bg-gray-700 p-2 rounded w-28"
-            />
-            <button onClick={handleAdd} className="bg-red-600 px-4 py-2 rounded">
-              Add
-            </button>
-          </div>
-        </div>
+        <FoodFinder recentEntries={entries} onLog={handleLog} />
 
         <div className="bg-gray-800 rounded-xl p-6">
           <h2 className="text-2xl font-bold mb-4">Today's Food</h2>

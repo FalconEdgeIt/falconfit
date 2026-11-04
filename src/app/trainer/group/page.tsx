@@ -203,7 +203,7 @@ export default function TrainerGroupPage() {
                       <p className="font-semibold">
                         {m.name}
                         {m.id === topCardioId && (
-                          <span className="ml-2 text-xs bg-red-900/60 text-red-300 rounded-full px-2 py-0.5">
+                          <span className="ml-2 inline-block whitespace-nowrap text-xs bg-red-900/60 text-red-300 rounded-full px-2 py-0.5">
                             🔥 Top cardio this week
                           </span>
                         )}

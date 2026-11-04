@@ -67,7 +67,9 @@ export default function WorkoutsPage() {
       if (!res.ok) throw new Error("Failed to load workout days");
       const data: WorkoutDay[] = await res.json();
       setDays(data);
-      setSelectedDayId(data[0]?.id || "");
+      // The dashboard's Start button links here with ?day= to open that workout
+      const requestedDay = new URLSearchParams(window.location.search).get("day");
+      setSelectedDayId(data.find((d) => d.id === requestedDay)?.id || data[0]?.id || "");
     } catch (err) {
       setError("Couldn't load your workouts. Check your connection and try refreshing.");
     } finally {

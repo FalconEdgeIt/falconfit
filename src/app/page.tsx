@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Navigation from "../components/Navigation";
 import { notifyActivity } from "../components/AchievementToasts";
 import { BOX_STYLES } from "../components/boxStyles";
+import { DirectivePanel, GoalTrack, TrainingRecord } from "../components/SystemHud";
+import { getActivityGrid, getDirective, getWeekStreak, getXp, toLocalDay } from "../lib/hud";
 import type { Achievement } from "../lib/achievements";
 
 type WeightEntry = {
@@ -45,8 +47,17 @@ function buildGoogleCalendarUrl(
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
+const RECORD_WEEKS = 18;
+
+type HistoryEntry = { date: string; dayName: string };
+type CardioEntry = { date: string; minutes: number };
+
 export default function Home() {
-  const [workoutCount, setWorkoutCount] = useState(0);
+  const [today] = useState(() => new Date());
+  const [firstName, setFirstName] = useState("");
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [cardioLog, setCardioLog] = useState<CardioEntry[]>([]);
+  const [startWeight, setStartWeight] = useState<number | null>(null);
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [goalWeight, setGoalWeight] = useState<number | null>(null);
   const [days, setDays] = useState<WorkoutDay[]>([]);
@@ -82,13 +93,21 @@ export default function Home() {
 
   useEffect(loadAchievements, []);
 
+  useEffect(() => {
+    fetch("/api/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((me) => me && setFirstName(me.name.split(" ")[0]))
+      .catch(() => {});
+  }, []);
+
   const [cardioWeek, setCardioWeek] = useState<{ minutes: number; sessions: number } | null>(null);
 
   useEffect(() => {
     fetch("/api/cardio")
       .then((res) => (res.ok ? res.json() : null))
-      .then((entries: { date: string; minutes: number }[] | null) => {
+      .then((entries: CardioEntry[] | null) => {
         if (!entries) return;
+        setCardioLog(entries);
         const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
         const recent = entries.filter((e) => new Date(e.date).getTime() >= weekAgo);
         setCardioWeek({ minutes: recent.reduce((sum, e) => sum + e.minutes, 0), sessions: recent.length });
@@ -108,21 +127,19 @@ export default function Home() {
 
         if (!historyRes.ok || !weightRes.ok || !daysRes.ok || !profileRes.ok) throw new Error();
 
-        const history: { date: string }[] = await historyRes.json();
+        const historyData: HistoryEntry[] = await historyRes.json();
         const weightLog: WeightEntry[] = await weightRes.json();
         const workoutDays: WorkoutDay[] = await daysRes.json();
         const profile: Profile = await profileRes.json();
 
-        const uniqueDays = new Set(
-          history.map((entry) => new Date(entry.date).toISOString().slice(0, 10))
-        );
-        setWorkoutCount(uniqueDays.size);
+        setHistory(historyData);
 
         if (weightLog.length > 0) {
           const sorted = [...weightLog].sort(
             (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
           );
           setCurrentWeight(sorted[0].weight);
+          setStartWeight(sorted[sorted.length - 1].weight);
         }
 
         setGoalWeight(profile.goalWeight);
@@ -170,6 +187,30 @@ export default function Home() {
 
   const selectedDay = days.find((d) => d.id === selectedDayId);
 
+  const liftDays = new Set(history.map((h) => toLocalDay(new Date(h.date))));
+  const cardioDays = new Set(cardioLog.map((c) => toLocalDay(new Date(c.date))));
+  const activeDays = new Set([...liftDays, ...cardioDays]);
+  const workoutCount = liftDays.size;
+
+  const { streak, activeThisWeek } = getWeekStreak(activeDays, today);
+  const grid = getActivityGrid(liftDays, cardioDays, today, RECORD_WEEKS);
+  const lastActive = [...activeDays].sort().at(-1) ?? null;
+  const directive = getDirective({
+    today,
+    days,
+    lastDayName: history[0]?.dayName ?? null, // history arrives newest first
+    trainedToday: activeDays.has(toLocalDay(today)),
+    daysSinceActive: lastActive
+      ? Math.round(
+          (new Date(`${toLocalDay(today)}T00:00:00`).getTime() - new Date(`${lastActive}T00:00:00`).getTime()) /
+            86400000
+        )
+      : null,
+    streak,
+    activeThisWeek,
+  });
+  const xp = getXp(workoutCount, cardioLog.length, achievements ?? []);
+
   const earnedBadges = (achievements ?? []).filter((a) => a.earned);
   const recentBadges = [...earnedBadges]
     .sort((a, b) => (b.lastEarnedAt ?? "").localeCompare(a.lastEarnedAt ?? ""))
@@ -189,13 +230,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-900 text-white p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <Navigation />
-
-        <div className="text-center mb-8">
-          <img src="/falconfit-logo.png" alt="FalconFit" className="h-40 mx-auto mb-2" />
-          <p className="text-gray-300">Your personal fitness tracking dashboard</p>
-        </div>
 
         {error && (
           <div className="bg-red-900/50 border border-red-700 text-red-200 rounded-lg p-3 mb-4">
@@ -203,40 +239,72 @@ export default function Home() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-gray-800 rounded-xl p-5">
-            <h2 className="text-lg font-semibold">Current Weight</h2>
-            <p className="text-3xl mt-2">
-              {!loaded ? "..." : currentWeight !== null ? `${currentWeight} lbs` : "No data yet"}
+        {!loaded ? (
+          <div className="bg-gray-800 rounded-2xl h-72 animate-pulse" />
+        ) : (
+          <DirectivePanel
+            name={firstName}
+            today={today}
+            directive={directive}
+            xp={xp}
+            onLogFood={() => {
+              setShowLogFood(true);
+              setFoodMessage("");
+              document.getElementById("quick-actions")?.scrollIntoView({ behavior: "smooth" });
+            }}
+          />
+        )}
+
+        <div className="grid lg:grid-cols-3 gap-4 mt-4">
+          <div className="lg:col-span-2">
+            <TrainingRecord
+              grid={grid}
+              weeks={RECORD_WEEKS}
+              streak={streak}
+              activeDaysInGrid={grid.filter((d) => d.lifted || d.cardio).length}
+            />
+          </div>
+          <GoalTrack startWeight={startWeight} currentWeight={currentWeight} goalWeight={goalWeight} />
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 mt-4">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700/70 p-4 lg:p-5">
+            <p className="text-gray-400 text-xs uppercase tracking-wider">Workouts</p>
+            <p className="font-display font-extrabold text-4xl lg:text-5xl mt-1 tabular-nums">
+              {!loaded ? "..." : workoutCount}
             </p>
+            <p className="text-gray-500 text-xs mt-0.5">all time</p>
           </div>
-          <div className="bg-gray-800 rounded-xl p-5">
-            <h2 className="text-lg font-semibold">Goal Weight</h2>
-            <p className="text-3xl mt-2">
-              {!loaded ? "..." : goalWeight !== null ? `${goalWeight} lbs` : "Not set"}
-            </p>
-          </div>
-          <div className="bg-gray-800 rounded-xl p-5">
-            <h2 className="text-lg font-semibold">Workouts</h2>
-            <p className="text-3xl mt-2">{!loaded ? "..." : workoutCount}</p>
-          </div>
-          <a href="/workouts" className="bg-gray-800 rounded-xl p-5 hover:bg-gray-700/80">
-            <h2 className="text-lg font-semibold">Cardio</h2>
-            <p className="text-3xl mt-2">
+          <a
+            href="/workouts"
+            className="bg-gray-800 rounded-2xl border border-gray-700/70 p-4 lg:p-5 hover:border-gray-600"
+          >
+            <p className="text-gray-400 text-xs uppercase tracking-wider">Cardio</p>
+            <p className="font-display font-extrabold text-4xl lg:text-5xl mt-1 tabular-nums">
               {!cardioWeek
                 ? "..."
                 : cardioWeek.minutes >= 60
                   ? `${Math.floor(cardioWeek.minutes / 60)}h ${cardioWeek.minutes % 60}m`
-                  : `${cardioWeek.minutes} min`}
+                  : `${cardioWeek.minutes}m`}
             </p>
-            <p className="text-gray-400 text-xs mt-1">
+            <p className="text-gray-500 text-xs mt-0.5">
               last 7 days{cardioWeek ? ` · ${cardioWeek.sessions} session${cardioWeek.sessions === 1 ? "" : "s"}` : ""}
             </p>
+          </a>
+          <a
+            href="/achievements"
+            className="bg-gray-800 rounded-2xl border border-gray-700/70 p-4 lg:p-5 hover:border-gray-600"
+          >
+            <p className="text-gray-400 text-xs uppercase tracking-wider">Badges</p>
+            <p className="font-display font-extrabold text-4xl lg:text-5xl mt-1 tabular-nums">
+              {achievements ? earnedBadges.length : "..."}
+            </p>
+            <p className="text-gray-500 text-xs mt-0.5">of {achievements?.length ?? "..."} earned</p>
           </a>
         </div>
 
         {achievements && (
-          <div className="mt-8 bg-gray-800 rounded-xl p-6">
+          <div className="mt-4 bg-gray-800 rounded-2xl border border-gray-700/70 p-5 lg:p-6">
             <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
               <h2 className="text-2xl font-bold">Recent Badges</h2>
               <a href="/achievements" className="text-sm text-gray-400 hover:text-red-400">
@@ -296,7 +364,10 @@ export default function Home() {
           </div>
         )}
 
-        <div className="mt-8 bg-gray-800 rounded-xl p-6">
+        <div
+          id="quick-actions"
+          className="mt-4 bg-gray-800 rounded-2xl border border-gray-700/70 p-5 lg:p-6 scroll-mt-20"
+        >
           <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
           <div className="flex gap-4 flex-wrap">
             <button
@@ -408,8 +479,13 @@ export default function Home() {
           )}
         </div>
 
-        <a href="https://www.falconedgeit.ca" target="_blank" rel="noopener noreferrer" className="fixed bottom-4 right-4 flex items-center gap-2 bg-gray-800/80 backdrop-blur px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-red-400 transition-colors">
-          <img src="/falconfit-icon.png" alt="FalconEdge IT" className="h-5 w-auto" />
+        <a
+          href="https://www.falconedgeit.ca"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-red-400"
+        >
+          <img src="/falconfit-icon.png" alt="" className="h-4 w-auto" />
           Powered by FalconEdge IT
         </a>
       </div>

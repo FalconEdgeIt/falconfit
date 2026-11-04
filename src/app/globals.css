@@ -1,21 +1,91 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* The whole app is built on the gray and red scales, so restyling them here re-skins every page */
+@theme {
+  --color-gray-950: #07080a;
+  --color-gray-900: #0c0e11;
+  --color-gray-800: #15181d;
+  --color-gray-700: #23272f;
+  --color-gray-600: #363c46;
+  --color-gray-500: #7d8592;
+  --color-gray-400: #a3a9b4;
+  --color-gray-300: #cdd1d8;
+  --color-red-300: #ff9aa2;
+  --color-red-400: #ff5664;
+  --color-red-600: #e11d35;
+  --color-red-700: #be1229;
+  --color-red-800: #8f0f20;
+  --color-red-900: #4f0a14;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-barlow);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-gray-900);
+  color: #f3f4f6;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* A low crimson glow behind every page */
+main {
+  background-image: radial-gradient(70rem 34rem at 85% -10%, rgb(225 29 53 / 0.13), transparent 70%);
+  background-attachment: fixed;
+}
+
+main h1,
+main h2 {
+  font-family: var(--font-barlow);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+main h1 {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+main h2 {
+  font-size: 1.75rem;
+  line-height: 1.1;
+}
+
+main .bg-gray-800 {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+main button:not(:disabled),
+main a {
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+main button[class*="bg-red"]:active {
+  transform: scale(0.97);
+}
+
+main input,
+main select {
+  outline-color: var(--color-red-600);
+}
+
+/* App shell: room for the side rail on desktop, and the top and tab bars on phones.
+   Pages without the shell (login, signup) keep their own layout. */
+body:has([data-app-shell]) main {
+  padding-top: 4.75rem;
+  padding-bottom: 6.5rem;
+}
+
+@media (min-width: 1024px) {
+  body:has([data-app-shell]) main {
+    padding: 2.5rem 2.5rem 3rem 8.25rem;
   }
 }
 
@@ -29,8 +99,24 @@
   animation: bounce-in 0.5s ease-out;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes hud-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hud-rise {
+  animation: hud-rise 0.5s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-rise,
+  .animate-bounce-in {
+    animation: none;
+  }
+}
+
+@media (max-width: 639px) {
+  main h1 {
+    font-size: 2.5rem;
+  }
 }

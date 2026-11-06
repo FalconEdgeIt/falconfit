@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { BookmarkPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import Navigation from "../../components/Navigation";
 import FoodFinder from "../../components/FoodFinder";
+import HydrationCard from "../../components/HydrationCard";
 import { useFoodLog, type FoodEntry, type Macros, type NewFood } from "../../components/useFoodLog";
+import { DEFAULT_WATER_TARGET_ML } from "../../lib/hydration";
 import { toLocalDay } from "../../lib/hud";
 import { MEALS, isMeal, mealForTime } from "../../lib/meals";
 
@@ -13,6 +15,7 @@ type Profile = {
   proteinTarget: number | null;
   carbTarget: number | null;
   fatTarget: number | null;
+  waterTarget: number | null;
 };
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -225,6 +228,8 @@ export default function NutritionPage() {
             </p>
           )}
         </section>
+
+        <HydrationCard day={day} today={today} target={profile?.waterTarget ?? DEFAULT_WATER_TARGET_ML} />
 
         <section className="bg-gray-800 rounded-2xl border border-gray-700/70 p-5 lg:p-6 mb-4">
           <h2 className="mb-4">{day === today ? "Log Food" : `Log Food · ${dayName}`}</h2>

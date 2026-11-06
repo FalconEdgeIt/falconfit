@@ -35,6 +35,7 @@ export async function PATCH(request: Request) {
     proteinTarget,
     carbTarget,
     fatTarget,
+    waterTarget,
   } = body;
 
   const profile = await prisma.profile.upsert({
@@ -48,6 +49,7 @@ export async function PATCH(request: Request) {
       ...(proteinTarget !== undefined && { proteinTarget }),
       ...(carbTarget !== undefined && { carbTarget }),
       ...(fatTarget !== undefined && { fatTarget }),
+      ...(waterTarget !== undefined && { waterTarget }),
     },
     create: {
       userId: session.id,
@@ -59,6 +61,7 @@ export async function PATCH(request: Request) {
       proteinTarget,
       carbTarget,
       fatTarget,
+      waterTarget,
     },
   });
 

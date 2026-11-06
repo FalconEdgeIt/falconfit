@@ -1,9 +1,10 @@
 import { prisma } from "./prisma";
+import { DEFAULT_WATER_TARGET_ML, hydrationTimelines } from "./hydration";
 
 // Achievements are derived from existing activity data rather than stored, so they apply
 // retroactively and can never drift out of sync with what a user has actually logged.
 
-export type AchievementCategory = "Workouts" | "Consistency" | "Strength" | "Cardio" | "Body Weight" | "Nutrition";
+export type AchievementCategory = "Workouts" | "Consistency" | "Strength" | "Cardio" | "Body Weight" | "Nutrition" | "Hydration";
 
 // Loot box rarity awarded with each badge — purely cosmetic, lowest to highest
 export type BoxTier = "Bronze" | "Silver" | "Gold" | "Platinum" | "Legendary";
@@ -273,8 +274,74 @@ const CARDIO_VARIETY: Definition = {
   target: 5,
 };
 
+const FIRST_WATER: Definition = {
+  id: "water-logged-1",
+  category: "Hydration",
+  name: "The Original Pre-Workout",
+  icon: "🚰",
+  box: "Bronze",
+  description: "Log water for the first time",
+  quip: "Zero caffeine, zero beta-alanine, zero tingling face. The System is stunned to learn this was free all along.",
+  target: 1,
+};
+
+const WATER_GOAL_TIERS = tiers({ idPrefix: "water-goal", category: "Hydration" }, [
+  {
+    target: 1, name: "Hydro Homie", icon: "💧", box: "Bronze", repeatable: true,
+    description: "Hit your daily water target (earned every day you do)",
+    quip: "Water target hit. Your kidneys have stopped filing complaints, pending review.",
+  },
+  {
+    target: 7, name: "Gallon Jug Energy", icon: "🫙", box: "Silver",
+    description: "Hit your water target on 7 days",
+    quip: "You now carry a giant jug everywhere like it's an emotional support animal. The System approves.",
+  },
+  {
+    target: 30, name: "Bathroom Frequent Flyer", icon: "🚽", box: "Gold",
+    description: "Hit your water target on 30 days",
+    quip: "Thirty days on target. You've earned elite status and know every washroom between here and the squat rack.",
+  },
+  {
+    target: 100, name: "Certified Aquifer", icon: "🌊", box: "Platinum",
+    description: "Hit your water target on 100 days",
+    quip: "One hundred days. Geologists have asked to survey you. The viewers would like to know your flow rate.",
+  },
+]);
+
+const WATER_STREAK_TIERS = tiers({ idPrefix: "water-streak", category: "Hydration" }, [
+  {
+    target: 7, name: "Clear Skies Ahead", icon: "🌤️", box: "Silver",
+    description: "Hit your water target 7 days in a row",
+    quip: "Seven straight days. The System has checked the color chart on the washroom wall. Looking good, champ.",
+  },
+  {
+    target: 30, name: "Unbroken Waterline", icon: "🛟", box: "Gold",
+    description: "Hit your water target 30 days in a row",
+    quip: "Thirty days without a dry spell. Cacti across the desert regard you with disgust.",
+  },
+], "days");
+
+// Total water tiers count in whole liters
+const WATER_TOTAL_TIERS = tiers({ idPrefix: "water-liters", category: "Hydration" }, [
+  {
+    target: 100, name: "Walking Water Cooler", icon: "🚶", box: "Silver",
+    description: "Drink 100 liters of water",
+    quip: "One hundred liters. Coworkers now gather around you to discuss the weekend.",
+  },
+  {
+    target: 500, name: "Hot Tub Drainer", icon: "🛁", box: "Gold",
+    description: "Drink 500 liters of water",
+    quip: "You have personally consumed a hot tub. Please do not try this with the one at the gym.",
+  },
+  {
+    target: 1000, name: "Great Lakes Threat", icon: "🏞️", box: "Legendary",
+    description: "Drink 1,000 liters of water",
+    quip: "One thousand liters. Lake Huron has requested a restraining order, and the shipping lanes are nervous.",
+  },
+], "L");
+
 export async function computeAchievements(userId: string, tzOffset = 0): Promise<Achievement[]> {
-  const [setLogs, cardioEntries, weightEntries, foodEntries, profile] = await Promise.all([
+  const [setLogs, cardioEntries, weightEntries, foodEntries, waterEntries, profile] = await Promise.all([
     prisma.setLog.findMany({
       where: { exercise: { day: { userId } } },
       orderBy: { date: "asc" },
@@ -291,7 +358,15 @@ export async function computeAchievements(userId: string, tzOffset = 0): Promise
       orderBy: { date: "asc" },
       select: { date: true, protein: true },
     }),
-    prisma.profile.findUnique({ where: { userId }, select: { goalWeight: true, proteinTarget: true } }),
+    prisma.waterEntry.findMany({
+      where: { userId },
+      orderBy: { date: "asc" },
+      select: { date: true, amount: true },
+    }),
+    prisma.profile.findUnique({
+      where: { userId },
+      select: { goalWeight: true, proteinTarget: true, waterTarget: true },
+    }),
   ]);
 
   // Workouts: distinct local days with at least one logged set
@@ -391,6 +466,11 @@ export async function computeAchievements(userId: string, tzOffset = 0): Promise
     ? [...proteinByDay.entries()].filter(([, grams]) => grams >= proteinTarget).map(([day]) => day)
     : [];
 
+  const water = hydrationTimelines(
+    waterEntries.map((w) => ({ day: localDay(w.date, tzOffset), amount: w.amount })),
+    profile?.waterTarget ?? DEFAULT_WATER_TARGET_ML
+  );
+
   return [
     ...WORKOUT_TIERS.map((d) => fromTimeline(d, workoutDays)),
     ...STREAK_TIERS.map((d) => fromTimeline(d, streakTimeline)),
@@ -403,5 +483,9 @@ export async function computeAchievements(userId: string, tzOffset = 0): Promise
     fromTimeline(GOAL_WEIGHT, goalTimeline),
     ...FOOD_TIERS.map((d) => fromTimeline(d, foodTimeline)),
     ...PROTEIN_TIERS.map((d) => fromTimeline(d, proteinTimeline)),
+    fromTimeline(FIRST_WATER, water.loggedDays),
+    ...WATER_GOAL_TIERS.map((d) => fromTimeline(d, water.goalDays)),
+    ...WATER_STREAK_TIERS.map((d) => fromTimeline(d, water.streak)),
+    ...WATER_TOTAL_TIERS.map((d) => fromTimeline(d, water.liters)),
   ];
 }

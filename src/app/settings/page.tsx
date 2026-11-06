@@ -14,6 +14,7 @@ type Profile = {
   proteinTarget: number | null;
   carbTarget: number | null;
   fatTarget: number | null;
+  waterTarget: number | null;
 };
 
 function calculateAge(birthdate: string): number {
@@ -38,6 +39,7 @@ export default function SettingsPage() {
   const [proteinTarget, setProteinTarget] = useState("");
   const [carbTarget, setCarbTarget] = useState("");
   const [fatTarget, setFatTarget] = useState("");
+  const [waterTarget, setWaterTarget] = useState("");
 
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -58,6 +60,7 @@ export default function SettingsPage() {
         setProteinTarget(profile.proteinTarget?.toString() || "");
         setCarbTarget(profile.carbTarget?.toString() || "");
         setFatTarget(profile.fatTarget?.toString() || "");
+        setWaterTarget(profile.waterTarget?.toString() || "");
 
         if (profile.heightInches) {
           setHeightFeet(Math.floor(profile.heightInches / 12).toString());
@@ -94,6 +97,7 @@ export default function SettingsPage() {
           proteinTarget: proteinTarget ? Number(proteinTarget) : null,
           carbTarget: carbTarget ? Number(carbTarget) : null,
           fatTarget: fatTarget ? Number(fatTarget) : null,
+          waterTarget: waterTarget ? Number(waterTarget) : null,
         }),
       });
       if (!res.ok) throw new Error();
@@ -232,6 +236,16 @@ export default function SettingsPage() {
                   onChange={(e) => setFatTarget(e.target.value)}
                   className="bg-gray-700 p-2 rounded w-full"
                   placeholder="e.g. 70"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 mb-2">Water (ml)</label>
+                <input
+                  type="number"
+                  value={waterTarget}
+                  onChange={(e) => setWaterTarget(e.target.value)}
+                  className="bg-gray-700 p-2 rounded w-full"
+                  placeholder="2500 if left blank"
                 />
               </div>
             </div>

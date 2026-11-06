@@ -178,7 +178,12 @@ export default function ProgressPage() {
   useEffect(() => {
     fetch("/api/me")
       .then((res) => (res.ok ? res.json() : null))
-      .then(setMe)
+      .then((data: Me | null) => {
+        setMe(data);
+        // The trainer's Check-In links here with ?member= to open that member's stats
+        const member = new URLSearchParams(window.location.search).get("member");
+        if (data?.members?.some((m) => m.id === member)) setViewingId(member!);
+      })
       .catch(() => setMe(null));
   }, []);
 

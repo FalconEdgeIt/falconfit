@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navigation from "../../../components/Navigation";
+import TrainerCheckIn from "../../../components/TrainerCheckIn";
+import type { MemberCheckIn } from "../../../lib/checkIn";
 import type { MemberCardio } from "../../api/trainer/group/route";
 
 type Member = { id: string; name: string; email: string };
@@ -31,6 +33,7 @@ export default function TrainerGroupPage() {
   const [group, setGroup] = useState<Group | null>(null);
   const [availableMembers, setAvailableMembers] = useState<Member[]>([]);
   const [cardio, setCardio] = useState<Record<string, MemberCardio>>({});
+  const [checkIn, setCheckIn] = useState<Record<string, MemberCheckIn>>({});
   const [days, setDays] = useState<WorkoutDay[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -58,7 +61,7 @@ export default function TrainerGroupPage() {
   const loadData = async () => {
     try {
       const [groupRes, daysRes] = await Promise.all([
-        fetch("/api/trainer/group"),
+        fetch(`/api/trainer/group?tzOffset=${new Date().getTimezoneOffset()}`),
         fetch("/api/workout-days"),
       ]);
       if (!groupRes.ok || !daysRes.ok) throw new Error();
@@ -66,6 +69,7 @@ export default function TrainerGroupPage() {
       setGroup(groupData.group);
       setAvailableMembers(groupData.availableMembers);
       setCardio(groupData.cardio ?? {});
+      setCheckIn(groupData.checkIn ?? {});
       setDays(await daysRes.json());
     } catch {
       setError("Couldn't load your Group. Check your connection and try refreshing.");
@@ -190,6 +194,8 @@ export default function TrainerGroupPage() {
           </div>
         ) : (
           <>
+            <TrainerCheckIn members={group.members} checkIn={checkIn} />
+
             <div className="bg-gray-800 rounded-xl p-6 mb-8">
               <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
                 <h2 className="text-2xl font-bold">{group.name}</h2>

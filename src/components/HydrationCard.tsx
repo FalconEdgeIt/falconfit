@@ -10,7 +10,19 @@ type WaterEntry = { id: string; date: string; amount: number };
 
 const liters = (ml: number) => `${Math.round(ml / 10) / 100} L`;
 
-export default function HydrationCard({ day, today, target }: { day: string; today: string; target: number }) {
+export default function HydrationCard({
+  day,
+  today,
+  target,
+  className,
+  onChange,
+}: {
+  day: string;
+  today: string;
+  target: number;
+  className: string;
+  onChange?: () => void;
+}) {
   const [entries, setEntries] = useState<WaterEntry[]>([]);
   const [custom, setCustom] = useState("");
   const [error, setError] = useState("");
@@ -46,6 +58,7 @@ export default function HydrationCard({ day, today, target }: { day: string; tod
       const entry: WaterEntry = await res.json();
       setEntries((prev) => [entry, ...prev]);
       notifyActivity();
+      onChange?.();
       return true;
     } catch {
       setError("Couldn't log that water. Try again.");
@@ -62,6 +75,7 @@ export default function HydrationCard({ day, today, target }: { day: string; tod
       if (!res.ok) throw new Error();
       setEntries((prev) => prev.filter((e) => e.id !== last.id));
       notifyActivity();
+      onChange?.();
     } catch {
       setError("Couldn't undo that. Try again.");
     }
@@ -70,7 +84,7 @@ export default function HydrationCard({ day, today, target }: { day: string; tod
   const customAmount = Number(custom);
 
   return (
-    <section className="bg-gray-800 rounded-2xl border border-gray-700/70 p-5 lg:p-6 mb-4">
+    <section className={className}>
       <div className="flex items-center justify-between gap-3">
         <h2>Hydration</h2>
         <Droplets size={20} className="text-blue-400" />

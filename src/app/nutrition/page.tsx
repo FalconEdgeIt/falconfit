@@ -229,7 +229,12 @@ export default function NutritionPage() {
           )}
         </section>
 
-        <HydrationCard day={day} today={today} target={profile?.waterTarget ?? DEFAULT_WATER_TARGET_ML} />
+        <HydrationCard
+          day={day}
+          today={today}
+          target={profile?.waterTarget ?? DEFAULT_WATER_TARGET_ML}
+          className="bg-gray-800 rounded-2xl border border-gray-700/70 p-5 lg:p-6 mb-4"
+        />
 
         <section className="bg-gray-800 rounded-2xl border border-gray-700/70 p-5 lg:p-6 mb-4">
           <h2 className="mb-4">{day === today ? "Log Food" : `Log Food · ${dayName}`}</h2>

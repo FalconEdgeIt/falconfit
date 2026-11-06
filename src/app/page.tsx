@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Navigation from "../components/Navigation";
+import HydrationCard from "../components/HydrationCard";
 import QuickFoodLog from "../components/QuickFoodLog";
 import { BOX_STYLES } from "../components/boxStyles";
 import { DirectivePanel, GoalTrack, TrainingRecord } from "../components/SystemHud";
+import { DEFAULT_WATER_TARGET_ML } from "../lib/hydration";
 import { getActivityGrid, getDirective, getWeekStreak, getXp, toLocalDay } from "../lib/hud";
 import type { Achievement } from "../lib/achievements";
 
@@ -21,6 +23,7 @@ type WorkoutDay = {
 
 type Profile = {
   goalWeight: number | null;
+  waterTarget: number | null;
 };
 
 function buildGoogleCalendarUrl(
@@ -60,6 +63,7 @@ export default function Home() {
   const [startWeight, setStartWeight] = useState<number | null>(null);
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [goalWeight, setGoalWeight] = useState<number | null>(null);
+  const [waterTarget, setWaterTarget] = useState(DEFAULT_WATER_TARGET_ML);
   const [days, setDays] = useState<WorkoutDay[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -74,6 +78,7 @@ export default function Home() {
   const [scheduleTime, setScheduleTime] = useState("17:00");
 
   const [showLogFood, setShowLogFood] = useState(false);
+  const [showLogWater, setShowLogWater] = useState(false);
 
   const [achievements, setAchievements] = useState<Achievement[] | null>(null);
 
@@ -137,6 +142,7 @@ export default function Home() {
         }
 
         setGoalWeight(profile.goalWeight);
+        setWaterTarget(profile.waterTarget ?? DEFAULT_WATER_TARGET_ML);
         setDays(workoutDays);
         setSelectedDayId(workoutDays[0]?.id || "");
       } catch {
@@ -345,9 +351,25 @@ export default function Home() {
             >
               🍗 Log Food
             </button>
+            <button
+              onClick={() => setShowLogWater((prev) => !prev)}
+              className="bg-red-800 px-5 py-3 rounded-lg"
+            >
+              💧 Log Water
+            </button>
           </div>
 
           {showLogFood && <QuickFoodLog onLogged={loadAchievements} />}
+
+          {showLogWater && (
+            <HydrationCard
+              day={toLocalDay(today)}
+              today={toLocalDay(today)}
+              target={waterTarget}
+              className="mt-6 border border-gray-700 rounded-lg p-4 sm:p-5"
+              onChange={loadAchievements}
+            />
+          )}
 
           {showScheduler && (
             <div className="mt-6 bg-gray-700 rounded-lg p-5">

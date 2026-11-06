@@ -78,7 +78,7 @@ export default function AdminPage() {
     if (authChecked) loadData();
   }, [authChecked]);
 
-  const trainers = users.filter((u) => u.role === "TRAINER");
+  const trainers = users.filter((u) => u.role !== "MEMBER");
 
   const handleCreateUser = async () => {
     if (!newName.trim() || !newEmail.trim() || !newPassword) return;
@@ -285,7 +285,7 @@ export default function AdminPage() {
                     ))}
                   </select>
                 )}
-                {u.role === "TRAINER" && u.ledGroup && (
+                {u.ledGroup && (
                   <span className="text-gray-400 text-sm">leads {u.ledGroup.name}</span>
                 )}
                 <label className="flex items-center gap-2 text-sm text-gray-400">

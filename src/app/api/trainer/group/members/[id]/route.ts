@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../../../lib/prisma";
-import { requireUser, requireRole, isResponse } from "../../../../../../lib/authz";
-import { Role } from "../../../../../../generated/prisma/enums";
+import { requireUser, requireCoach, isResponse } from "../../../../../../lib/authz";
 
 // DELETE remove a Member from the Trainer's own Group (they become unassigned)
 export async function DELETE(
@@ -10,7 +9,7 @@ export async function DELETE(
 ) {
   const session = await requireUser();
   if (isResponse(session)) return session;
-  const forbidden = requireRole(session, Role.TRAINER);
+  const forbidden = requireCoach(session);
   if (forbidden) return forbidden;
 
   const { id } = await params;

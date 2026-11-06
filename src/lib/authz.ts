@@ -25,12 +25,20 @@ export function requireRole(session: Session, role: Role): NextResponse | null {
   return null;
 }
 
+// Trainer tools are open to Admins too, so an Admin can lead a Group of their own
+export function requireCoach(session: Session): NextResponse | null {
+  if (session.role === Role.MEMBER) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return null;
+}
+
 export function isResponse(value: unknown): value is NextResponse {
   return value instanceof NextResponse;
 }
 
 // Resolves which user's data a request should operate on. Defaults to the caller.
-// Trainers may pass ?userId=<memberId> to act on behalf of a Member in their Group.
+// Trainers and Admins may pass ?userId=<memberId> to act on behalf of a Member in their Group.
 export async function resolveTargetUserId(
   session: Session,
   requestedUserId: string | null
@@ -39,9 +47,8 @@ export async function resolveTargetUserId(
     return session.id;
   }
 
-  if (session.role !== Role.TRAINER) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const forbidden = requireCoach(session);
+  if (forbidden) return forbidden;
 
   const group = await prisma.group.findUnique({
     where: { trainerId: session.id },

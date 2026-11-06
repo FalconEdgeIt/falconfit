@@ -45,7 +45,7 @@ export async function PATCH(
         return NextResponse.json({ error: "Can't remove the last remaining Admin" }, { status: 400 });
       }
     }
-    if (target.role === Role.TRAINER && target.ledGroup) {
+    if (role === Role.MEMBER && target.ledGroup) {
       return NextResponse.json(
         { error: "This user leads a Group — reassign or delete that Group first" },
         { status: 400 }

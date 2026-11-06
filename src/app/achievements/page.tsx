@@ -77,7 +77,7 @@ export default function AchievementsPage() {
           The System is watching. The System is keeping score. The System would like you to do one more set.
         </p>
 
-        {me?.role === "TRAINER" && me.members && me.members.length > 0 && (
+        {me?.members && me.members.length > 0 && (
           <div className="flex items-center gap-3 mb-6">
             <label className="text-gray-400 text-sm">Viewing:</label>
             <select

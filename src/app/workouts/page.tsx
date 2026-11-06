@@ -399,7 +399,7 @@ export default function WorkoutsPage() {
         <Navigation />
         <h1 className="text-4xl font-bold mb-6">Workout Tracker</h1>
 
-        {me?.role === "TRAINER" && me.members && me.members.length > 0 && (
+        {me?.members && me.members.length > 0 && (
           <div className="flex items-center gap-3 mb-6">
             <label className="text-gray-400 text-sm">Viewing:</label>
             <select
@@ -476,7 +476,7 @@ export default function WorkoutsPage() {
               <button onClick={() => startEditingDay(day)} className="text-gray-400 hover:text-white px-1" title="Rename day">
                 ✎
               </button>
-              {me?.role === "TRAINER" && !viewingId && me.members && me.members.length > 0 && (
+              {!viewingId && me?.members && me.members.length > 0 && (
                 <button
                   onClick={() => toggleSendPanel(day.id)}
                   className="text-gray-400 hover:text-red-400 px-1"

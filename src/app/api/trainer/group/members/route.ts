@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
-import { requireUser, requireRole, isResponse } from "../../../../../lib/authz";
+import { requireUser, requireCoach, isResponse } from "../../../../../lib/authz";
 import { Role } from "../../../../../generated/prisma/enums";
 
 // POST add an unassigned Member to the Trainer's own Group
 export async function POST(request: Request) {
   const session = await requireUser();
   if (isResponse(session)) return session;
-  const forbidden = requireRole(session, Role.TRAINER);
+  const forbidden = requireCoach(session);
   if (forbidden) return forbidden;
 
   const group = await prisma.group.findUnique({ where: { trainerId: session.id } });

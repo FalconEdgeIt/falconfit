@@ -27,6 +27,7 @@ function formatMinutes(total: number) {
 export default function TrainerGroupPage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [group, setGroup] = useState<Group | null>(null);
   const [availableMembers, setAvailableMembers] = useState<Member[]>([]);
   const [cardio, setCardio] = useState<Record<string, MemberCardio>>({});
@@ -44,10 +45,11 @@ export default function TrainerGroupPage() {
     fetch("/api/me")
       .then((res) => (res.ok ? res.json() : null))
       .then((me) => {
-        if (me?.role !== "TRAINER") {
+        if (!me || me.role === "MEMBER") {
           router.push("/");
           return;
         }
+        setIsAdmin(me.role === "ADMIN");
         setAuthChecked(true);
       })
       .catch(() => router.push("/"));
@@ -172,9 +174,19 @@ export default function TrainerGroupPage() {
 
         {!group ? (
           <div className="bg-gray-800 rounded-xl p-6">
-            <p className="text-gray-400">
-              You don&apos;t lead a Group yet — ask an Admin to create one for you.
-            </p>
+            {isAdmin ? (
+              <p className="text-gray-400">
+                You don&apos;t lead a Group yet.{" "}
+                <a href="/admin" className="text-red-400">
+                  Create one on the Admin page
+                </a>{" "}
+                and choose yourself as its trainer.
+              </p>
+            ) : (
+              <p className="text-gray-400">
+                You don&apos;t lead a Group yet — ask an Admin to create one for you.
+              </p>
+            )}
           </div>
         ) : (
           <>

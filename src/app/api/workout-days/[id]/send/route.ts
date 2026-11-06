@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
-import { requireUser, requireRole, isResponse } from "../../../../../lib/authz";
-import { Role } from "../../../../../generated/prisma/enums";
+import { requireUser, requireCoach, isResponse } from "../../../../../lib/authz";
 
 // POST send a copy of one of the Trainer's own workout days (name + exercise names/order,
 // not personal weight/rep/PR history) to one or more Members in their Group.
@@ -11,7 +10,7 @@ export async function POST(
 ) {
   const session = await requireUser();
   if (isResponse(session)) return session;
-  const forbidden = requireRole(session, Role.TRAINER);
+  const forbidden = requireCoach(session);
   if (forbidden) return forbidden;
 
   const { id } = await params;

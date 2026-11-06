@@ -34,6 +34,6 @@ export async function GET() {
     email: user.email,
     role: user.role,
     groupName: user.group?.name ?? null,
-    members: user.role === Role.TRAINER ? user.ledGroup?.members ?? [] : undefined,
+    members: user.role !== Role.MEMBER ? user.ledGroup?.members ?? [] : undefined,
   });
 }

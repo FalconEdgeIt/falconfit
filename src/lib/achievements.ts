@@ -1,5 +1,7 @@
 import { prisma } from "./prisma";
 import { DEFAULT_WATER_TARGET_ML, hydrationTimelines } from "./hydration";
+import { champTimeline, weekStart as leaderboardWeek } from "./leaderboard";
+import { loadGroupActivity } from "./leaderboardData";
 
 // Achievements are derived from existing activity data rather than stored, so they apply
 // retroactively and can never drift out of sync with what a user has actually logged.
@@ -274,6 +276,18 @@ const CARDIO_VARIETY: Definition = {
   target: 5,
 };
 
+const WEEKLY_CHAMP: Definition = {
+  id: "weekly-champ-1",
+  category: "Consistency",
+  name: "Champ of the Week",
+  icon: "🏆",
+  box: "Gold",
+  description: "Finish a week at the top of your group's leaderboard (earned every week you do)",
+  repeatable: true,
+  quip: "First place. The viewers demand a speech. The System demands you do it again next week.",
+  target: 1,
+};
+
 const FIRST_WATER: Definition = {
   id: "water-logged-1",
   category: "Hydration",
@@ -341,7 +355,7 @@ const WATER_TOTAL_TIERS = tiers({ idPrefix: "water-liters", category: "Hydration
 ], "L");
 
 export async function computeAchievements(userId: string, tzOffset = 0): Promise<Achievement[]> {
-  const [setLogs, cardioEntries, weightEntries, foodEntries, waterEntries, profile] = await Promise.all([
+  const [setLogs, cardioEntries, weightEntries, foodEntries, waterEntries, profile, group] = await Promise.all([
     prisma.setLog.findMany({
       where: { exercise: { day: { userId } } },
       orderBy: { date: "asc" },
@@ -367,6 +381,7 @@ export async function computeAchievements(userId: string, tzOffset = 0): Promise
       where: { userId },
       select: { goalWeight: true, proteinTarget: true, waterTarget: true },
     }),
+    loadGroupActivity(userId, tzOffset),
   ]);
 
   // Workouts: distinct local days with at least one logged set
@@ -471,9 +486,14 @@ export async function computeAchievements(userId: string, tzOffset = 0): Promise
     profile?.waterTarget ?? DEFAULT_WATER_TARGET_ML
   );
 
+  const champWeeks: Timeline = group
+    ? champTimeline(group.people, userId, leaderboardWeek(localDay(new Date(), tzOffset)))
+    : [];
+
   return [
     ...WORKOUT_TIERS.map((d) => fromTimeline(d, workoutDays)),
     ...STREAK_TIERS.map((d) => fromTimeline(d, streakTimeline)),
+    fromTimeline(WEEKLY_CHAMP, champWeeks),
     ...PR_TIERS.map((d) => fromTimeline(d, prTimeline)),
     ...VOLUME_TIERS.map((d) => fromTimeline(d, volumeTimeline)),
     fromTimeline(CARDIO_SESSION, cardioSessionTimeline),

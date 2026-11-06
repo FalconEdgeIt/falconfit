@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
-import { requireUser, requireRole, isResponse } from "../../../../lib/authz";
+import { requireUser, requireCoach, isResponse } from "../../../../lib/authz";
 import { Role } from "../../../../generated/prisma/enums";
 
 export type MemberCardio = {
@@ -15,7 +15,7 @@ export type MemberCardio = {
 export async function GET() {
   const session = await requireUser();
   if (isResponse(session)) return session;
-  const forbidden = requireRole(session, Role.TRAINER);
+  const forbidden = requireCoach(session);
   if (forbidden) return forbidden;
 
   const [group, availableMembers] = await Promise.all([

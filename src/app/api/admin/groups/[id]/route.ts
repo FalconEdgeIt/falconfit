@@ -19,8 +19,8 @@ export async function PATCH(
 
   if (trainerId !== undefined) {
     const trainer = await prisma.user.findUnique({ where: { id: trainerId }, include: { ledGroup: true } });
-    if (!trainer || trainer.role !== Role.TRAINER) {
-      return NextResponse.json({ error: "trainerId must belong to a Trainer" }, { status: 400 });
+    if (!trainer || trainer.role === Role.MEMBER) {
+      return NextResponse.json({ error: "trainerId must belong to a Trainer or Admin" }, { status: 400 });
     }
     if (trainer.ledGroup && trainer.ledGroup.id !== id) {
       return NextResponse.json({ error: "That Trainer already leads a Group" }, { status: 400 });

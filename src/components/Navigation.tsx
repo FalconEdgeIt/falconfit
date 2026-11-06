@@ -11,6 +11,7 @@ import {
   Medal,
   Settings,
   ShieldCheck,
+  Trophy,
   Users,
   Utensils,
   type LucideIcon,
@@ -56,7 +57,8 @@ export default function Navigation() {
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   const secondary: NavItem[] = [
-    ...(me?.role === "TRAINER" ? [{ href: "/trainer/group", label: "My Group", icon: Users }] : []),
+    { href: "/leaderboard", label: "Ranks", icon: Trophy },
+    ...(me && me.role !== "MEMBER" ? [{ href: "/trainer/group", label: "My Group", icon: Users }] : []),
     ...(me?.role === "ADMIN" ? [{ href: "/admin", label: "Admin", icon: ShieldCheck }] : []),
     { href: "/settings", label: "Settings", icon: Settings },
   ];

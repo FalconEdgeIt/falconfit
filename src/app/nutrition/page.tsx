@@ -1,19 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { BookmarkPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import Navigation from "../../components/Navigation";
-import FoodFinder, { type NewFood } from "../../components/FoodFinder";
-import { notifyActivity } from "../../components/AchievementToasts";
-
-type FoodEntry = {
-  id: string;
-  date: string;
-  name: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-};
+import FoodFinder from "../../components/FoodFinder";
+import { useFoodLog, type FoodEntry, type Macros, type NewFood } from "../../components/useFoodLog";
+import { toLocalDay } from "../../lib/hud";
+import { MEALS, isMeal, mealForTime } from "../../lib/meals";
 
 type Profile = {
   calorieTarget: number | null;
@@ -22,107 +15,10 @@ type Profile = {
   fatTarget: number | null;
 };
 
-function isToday(dateStr: string) {
-  const d = new Date(dateStr);
-  const today = new Date();
-  return (
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth() &&
-    d.getDate() === today.getDate()
-  );
-}
+const round1 = (n: number) => Math.round(n * 10) / 10;
 
-function ProgressBar({
-  label,
-  current,
-  target,
-  unit,
-}: {
-  label: string;
-  current: number;
-  target: number | null;
-  unit: string;
-}) {
-  const pct = target ? Math.min(100, (current / target) * 100) : 0;
-
-  return (
-    <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-gray-300">{label}</span>
-        <span className="text-gray-400">
-          {Math.round(current)}
-          {unit} {target ? `/ ${Math.round(target)}${unit}` : ""}
-        </span>
-      </div>
-      <div className="w-full bg-gray-700 rounded-full h-2">
-        <div
-          className="bg-red-600 h-2 rounded-full transition-all"
-          style={{ width: `${target ? pct : 0}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-export default function NutritionPage() {
-  const [entries, setEntries] = useState<FoodEntry[]>([]);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState("");
-
-  const loadData = async () => {
-    try {
-      const [foodRes, profileRes] = await Promise.all([
-        fetch("/api/food"),
-        fetch("/api/profile"),
-      ]);
-      if (!foodRes.ok || !profileRes.ok) throw new Error();
-
-      setEntries(await foodRes.json());
-      setProfile(await profileRes.json());
-    } catch {
-      setError("Couldn't load your nutrition data. Check your connection and try refreshing.");
-    } finally {
-      setLoaded(true);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleLog = async (food: NewFood) => {
-    try {
-      const res = await fetch("/api/food", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(food),
-      });
-      if (!res.ok) throw new Error();
-      const newEntry: FoodEntry = await res.json();
-
-      setEntries((prev) => [newEntry, ...prev]);
-      notifyActivity();
-      return true;
-    } catch {
-      setError("Couldn't add that food. Try again.");
-      return false;
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/food/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
-      setEntries((prev) => prev.filter((e) => e.id !== id));
-    } catch {
-      setError("Couldn't delete that entry. Try again.");
-    }
-  };
-
-  const todayEntries = entries.filter((e) => isToday(e.date));
-
-  const totals = todayEntries.reduce(
+function sumMacros(entries: FoodEntry[]): Macros {
+  return entries.reduce(
     (acc, e) => ({
       calories: acc.calories + e.calories,
       protein: acc.protein + e.protein,
@@ -131,6 +27,135 @@ export default function NutritionPage() {
     }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
+}
+
+function shiftDay(day: string, days: number) {
+  const date = new Date(`${day}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return toLocalDay(date);
+}
+
+function dayLabel(day: string, today: string) {
+  if (day === today) return "Today";
+  if (day === shiftDay(today, -1)) return "Yesterday";
+  return new Date(`${day}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function Ring({
+  current,
+  target,
+  className,
+  children,
+}: {
+  current: number;
+  target: number | null;
+  className: string;
+  children: React.ReactNode;
+}) {
+  const radius = 42;
+  const circumference = 2 * Math.PI * radius;
+  const filled = target ? circumference * Math.min(1, current / target) : 0;
+
+  return (
+    <div className={`relative shrink-0 ${className}`}>
+      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90" aria-hidden="true">
+        <circle cx="50" cy="50" r={radius} fill="none" strokeWidth="9" className="stroke-gray-700" />
+        {filled > 0 && (
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="none"
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeDasharray={`${filled} ${circumference}`}
+            className="stroke-red-600 transition-all duration-700"
+          />
+        )}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
+    </div>
+  );
+}
+
+function MacroRing({ label, current, target }: { label: string; current: number; target: number | null }) {
+  return (
+    <div className="flex flex-col items-center text-center min-w-0">
+      <Ring current={current} target={target} className="w-20 h-20 sm:w-24 sm:h-24">
+        <span className="font-display font-extrabold text-2xl leading-none tabular-nums">{Math.round(current)}g</span>
+      </Ring>
+      <p className="text-sm text-gray-300 mt-2">{label}</p>
+      <p className="text-xs text-gray-500 tabular-nums">{target ? `of ${Math.round(target)}g` : "no target"}</p>
+    </div>
+  );
+}
+
+function CalorieRing({ current, target }: { current: number; target: number | null }) {
+  const left = target ? Math.round(target - current) : null;
+
+  return (
+    <div className="flex items-center gap-5">
+      <Ring current={current} target={target} className="w-32 h-32 sm:w-36 sm:h-36">
+        <span className="font-display font-extrabold text-4xl leading-none tabular-nums">{Math.round(current)}</span>
+        <span className="text-[10px] tracking-[0.2em] text-gray-400 mt-1">CALORIES</span>
+      </Ring>
+      {target && left !== null && (
+        <div>
+          <p className="font-display font-extrabold text-4xl leading-none tabular-nums">{Math.abs(left)}</p>
+          <p className="text-gray-300 text-sm mt-1">{left >= 0 ? "left" : "over"}</p>
+          <p className="text-gray-500 text-xs tabular-nums">of {Math.round(target)} cal</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function NutritionPage() {
+  const { entries, savedMeals, loaded, error, logFood, deleteEntry, saveMeal, deleteSavedMeal } = useFoodLog();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [today] = useState(() => toLocalDay(new Date()));
+  const [day, setDay] = useState(today);
+  const [savingMeal, setSavingMeal] = useState<string | null>(null);
+  const [savedName, setSavedName] = useState("");
+  const [savedNotice, setSavedNotice] = useState("");
+
+  useEffect(() => {
+    fetch("/api/profile")
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setProfile)
+      .catch(() => {});
+  }, []);
+
+  // Past days log at midday, well clear of the day's edges
+  const handleLog = (food: NewFood) =>
+    logFood(day === today ? food : { ...food, date: new Date(`${day}T12:00:00`).toISOString() });
+
+  const dayEntries = entries.filter((e) => toLocalDay(new Date(e.date)) === day);
+  const totals = sumMacros(dayEntries);
+  const mealGroups = MEALS.map((meal) => ({
+    meal,
+    items: dayEntries.filter((e) => (isMeal(e.meal) ? e.meal : mealForTime(new Date(e.date))) === meal),
+  })).filter((group) => group.items.length > 0);
+
+  const handleSave = async (items: FoodEntry[]) => {
+    const name = savedName.trim();
+    if (!name) return;
+    const sum = sumMacros(items);
+    const saved = await saveMeal({
+      name,
+      calories: Math.round(sum.calories),
+      protein: round1(sum.protein),
+      carbs: round1(sum.carbs),
+      fat: round1(sum.fat),
+    });
+    if (!saved) return;
+    setSavingMeal(null);
+    setSavedNotice(`Saved ${name}. It's now at the top of Log Food.`);
+  };
 
   if (!loaded) {
     return (
@@ -143,11 +168,38 @@ export default function NutritionPage() {
     );
   }
 
+  const dayName = dayLabel(day, today);
+  const hasTargets =
+    profile?.calorieTarget || profile?.proteinTarget || profile?.carbTarget || profile?.fatTarget;
+
   return (
     <main className="min-h-screen bg-gray-900 text-white p-6">
       <div className="max-w-4xl mx-auto">
         <Navigation />
-        <h1 className="text-4xl font-bold mb-6">Nutrition</h1>
+
+        <div className="flex items-center justify-between gap-3 mb-6">
+          <h1 className="text-4xl font-bold">Nutrition</h1>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setDay(shiftDay(day, -1))}
+              aria-label="Previous day"
+              className="p-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="w-24 text-center text-sm font-semibold" aria-live="polite">
+              {dayName}
+            </span>
+            <button
+              onClick={() => setDay(shiftDay(day, 1))}
+              disabled={day === today}
+              aria-label="Next day"
+              className="p-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white disabled:opacity-30"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
 
         {error && (
           <div className="bg-red-900/50 border border-red-700 text-red-200 rounded-lg p-3 mb-4">
@@ -155,78 +207,120 @@ export default function NutritionPage() {
           </div>
         )}
 
-        <div className="bg-gray-800 rounded-xl p-6 mb-8">
-          <h2 className="text-2xl font-bold mb-4">Today's Totals</h2>
-
-          {!profile?.calorieTarget &&
-            !profile?.proteinTarget &&
-            !profile?.carbTarget &&
-            !profile?.fatTarget && (
-              <p className="text-gray-500 text-sm mb-4">
-                Set daily targets on the Settings page to see progress bars here.
-              </p>
-            )}
-
-          <div className="space-y-4">
-            <ProgressBar
-              label="Calories"
-              current={totals.calories}
-              target={profile?.calorieTarget ?? null}
-              unit=" cal"
-            />
-            <ProgressBar
-              label="Protein"
-              current={totals.protein}
-              target={profile?.proteinTarget ?? null}
-              unit="g"
-            />
-            <ProgressBar
-              label="Carbs"
-              current={totals.carbs}
-              target={profile?.carbTarget ?? null}
-              unit="g"
-            />
-            <ProgressBar
-              label="Fat"
-              current={totals.fat}
-              target={profile?.fatTarget ?? null}
-              unit="g"
-            />
+        <section className="hud-rise bg-gray-800 rounded-2xl border border-gray-700/70 p-5 lg:p-6 mb-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <CalorieRing current={totals.calories} target={profile?.calorieTarget ?? null} />
+            <div className="grid grid-cols-3 gap-2 lg:gap-8">
+              <MacroRing label="Protein" current={totals.protein} target={profile?.proteinTarget ?? null} />
+              <MacroRing label="Carbs" current={totals.carbs} target={profile?.carbTarget ?? null} />
+              <MacroRing label="Fat" current={totals.fat} target={profile?.fatTarget ?? null} />
+            </div>
           </div>
-        </div>
+          {!hasTargets && (
+            <p className="text-gray-500 text-sm mt-4">
+              <a href="/settings" className="text-red-400">
+                Set daily targets
+              </a>{" "}
+              to fill these rings.
+            </p>
+          )}
+        </section>
 
-        <FoodFinder recentEntries={entries} onLog={handleLog} />
+        <section className="bg-gray-800 rounded-2xl border border-gray-700/70 p-5 lg:p-6 mb-4">
+          <h2 className="mb-4">{day === today ? "Log Food" : `Log Food · ${dayName}`}</h2>
+          <FoodFinder
+            key={day}
+            recentEntries={entries}
+            savedMeals={savedMeals}
+            onLog={handleLog}
+            onDeleteSaved={deleteSavedMeal}
+          />
+        </section>
 
-        <div className="bg-gray-800 rounded-xl p-6">
-          <h2 className="text-2xl font-bold mb-4">Today's Food</h2>
+        <section className="bg-gray-800 rounded-2xl border border-gray-700/70 p-5 lg:p-6">
+          <h2 className="mb-4">{day === today ? "Today's Food" : `Food · ${dayName}`}</h2>
 
-          {todayEntries.length === 0 ? (
-            <p className="text-gray-500">Nothing logged yet today.</p>
+          {savedNotice && <p className="text-gray-300 text-sm mb-3">{savedNotice}</p>}
+
+          {mealGroups.length === 0 ? (
+            <p className="text-gray-500">Nothing logged {day === today ? "yet today" : "this day"}.</p>
           ) : (
-            <div className="space-y-3">
-              {todayEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex justify-between items-center bg-gray-700 rounded-lg p-3"
-                >
-                  <div>
-                    <p className="font-semibold">{entry.name}</p>
-                    <p className="text-gray-400 text-sm">
-                      {entry.calories} cal · {entry.protein}g protein · {entry.carbs}g carbs · {entry.fat}g fat
-                    </p>
+            <div className="space-y-5">
+              {mealGroups.map(({ meal, items }) => {
+                const subtotal = sumMacros(items);
+                return (
+                  <div key={meal}>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <p className="font-display font-bold text-xl uppercase tracking-wide">{meal}</p>
+                      <p className="text-gray-400 text-sm tabular-nums">
+                        {Math.round(subtotal.calories)} cal · {Math.round(subtotal.protein)}g protein
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      {items.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="flex justify-between items-center gap-2 bg-gray-700/60 rounded-lg p-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-semibold">{entry.name}</p>
+                            <p className="text-gray-400 text-sm">
+                              {entry.calories} cal · {entry.protein}g protein · {entry.carbs}g carbs · {entry.fat}g fat
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => deleteEntry(entry.id)}
+                            className="text-gray-400 hover:text-red-400 px-2"
+                            title="Delete"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {savingMeal === meal ? (
+                      <form
+                        className="flex gap-2 mt-2"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSave(items);
+                        }}
+                      >
+                        <input
+                          autoFocus
+                          aria-label="Go-to meal name"
+                          value={savedName}
+                          onChange={(e) => setSavedName(e.target.value)}
+                          className="bg-gray-700 p-2 rounded flex-1 min-w-0 text-base"
+                        />
+                        <button type="submit" className="bg-red-600 px-3 rounded text-sm font-semibold">
+                          Save
+                        </button>
+                        <button type="button" onClick={() => setSavingMeal(null)} className="px-2 text-sm text-gray-400">
+                          Cancel
+                        </button>
+                      </form>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSavingMeal(meal);
+                          setSavedName(items.length === 1 ? items[0].name : meal);
+                          setSavedNotice("");
+                        }}
+                        className="flex items-center gap-1.5 mt-2 text-sm text-gray-400 hover:text-white"
+                      >
+                        <BookmarkPlus size={16} />
+                        Save as go-to meal
+                      </button>
+                    )}
                   </div>
-                  <button
-                    onClick={() => handleDelete(entry.id)}
-                    className="text-gray-400 hover:text-red-400 px-2"
-                    title="Delete"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
-        </div>
+        </section>
       </div>
     </main>
   );

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { requireUser, isResponse } from "../../../lib/authz";
+import { isMeal } from "../../../lib/meals";
 
 // GET all food entries for the caller, newest first
 export async function GET() {
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
   if (isResponse(session)) return session;
 
   const body = await request.json();
-  const { name, calories, protein, carbs, fat, date } = body;
+  const { name, calories, protein, carbs, fat, meal, date } = body;
 
   if (!name || calories === undefined) {
     return NextResponse.json({ error: "name and calories are required" }, { status: 400 });
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
       protein: Number(protein) || 0,
       carbs: Number(carbs) || 0,
       fat: Number(fat) || 0,
+      meal: isMeal(meal) ? meal : null,
       userId: session.id,
       ...(date && { date: new Date(date) }),
     },

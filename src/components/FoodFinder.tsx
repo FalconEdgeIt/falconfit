@@ -5,9 +5,8 @@ import { Plus, ScanBarcode, Search, X } from "lucide-react";
 import BarcodeScanner from "./BarcodeScanner";
 import { FOOD_LIBRARY } from "../lib/foodLibrary";
 import type { FoodProduct } from "../lib/foodLookup";
-
-export type Macros = { calories: number; protein: number; carbs: number; fat: number };
-export type NewFood = Macros & { name: string };
+import { MEALS, mealForTime, type Meal } from "../lib/meals";
+import type { Macros, NewFood, SavedMeal } from "./useFoodLog";
 
 // One thing the user can pick. `macros` covers one `servingLabel`. When `gramsPerServing`
 // is known the amount can also be entered by weight.
@@ -70,11 +69,16 @@ const inputClass = "bg-gray-700 p-2.5 rounded text-base";
 
 export default function FoodFinder({
   recentEntries,
+  savedMeals,
   onLog,
+  onDeleteSaved,
 }: {
-  recentEntries: NewFood[]; // newest first
+  recentEntries: (Macros & { name: string })[]; // newest first
+  savedMeals: SavedMeal[];
   onLog: (food: NewFood) => Promise<boolean>;
+  onDeleteSaved: (id: string) => void;
 }) {
+  const [meal, setMeal] = useState<Meal>(() => mealForTime(new Date()));
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ query: string; choices: FoodChoice[]; failed: boolean } | null>(null);
   const [selected, setSelected] = useState<FoodChoice | null>(null);
@@ -95,8 +99,9 @@ export default function FoodFinder({
   const recents = useMemo(() => {
     const seen = new Set<string>();
     const choices: FoodChoice[] = [];
-    for (const { name, ...macros } of recentEntries) {
+    for (const { name, calories, protein, carbs, fat } of recentEntries) {
       const id = name.toLowerCase();
+      const macros = { calories, protein, carbs, fat };
       if (seen.has(id)) continue;
       seen.add(id);
       choices.push({
@@ -138,6 +143,14 @@ export default function FoodFinder({
     term.length < 2
       ? recents.slice(0, RECENT_LIMIT)
       : [...recents.slice(0, 40), ...COMMON_CHOICES].filter((c) => matches(c.name, term)).slice(0, 8);
+
+  const visibleSaved = savedMeals.filter((m) => term.length < 2 || matches(m.name, term));
+
+  const log = async (food: Macros & { name: string }) => {
+    const logged = await onLog({ ...food, meal });
+    if (logged) setNotice(`Logged ${food.name} to ${meal}.`);
+    return logged;
+  };
 
   const openManual = (prefillName: string) => {
     setName(prefillName);
@@ -212,12 +225,12 @@ export default function FoodFinder({
     else if (selected.source === "recent") label += quantity === 1 ? "" : ` x${quantity}`;
     else label += ` (${quantity === 1 ? "" : `${quantity} x `}${selected.servingLabel})`;
 
-    if (await onLog({ name: label, ...preview })) clearSearch();
+    if (await log({ name: label, ...preview })) clearSearch();
   };
 
   const logManual = async () => {
     if (!name.trim() || !calories) return;
-    const logged = await onLog({
+    const logged = await log({
       name: name.trim(),
       calories: Number(calories),
       protein: Number(protein) || 0,
@@ -231,7 +244,6 @@ export default function FoodFinder({
     setCarbs("");
     setFat("");
     setShowManual(false);
-    setNotice("");
   };
 
   const choiceRow = (choice: FoodChoice) => (
@@ -249,8 +261,21 @@ export default function FoodFinder({
   );
 
   return (
-    <div className="bg-gray-800 rounded-xl p-6 mb-8">
-      <h2 className="text-2xl font-bold mb-4">Log Food</h2>
+    <div>
+      <div className="flex gap-1.5 mb-4" role="group" aria-label="Meal">
+        {MEALS.map((option) => (
+          <button
+            key={option}
+            aria-pressed={meal === option}
+            onClick={() => setMeal(option)}
+            className={`flex-1 min-w-0 py-2 rounded text-xs sm:text-sm font-medium ${
+              meal === option ? "bg-red-600 text-white" : "bg-gray-700/60 text-gray-300"
+            }`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
 
       {selected ? (
         <div>
@@ -355,6 +380,37 @@ export default function FoodFinder({
           </div>
 
           {notice && <p className="text-gray-300 text-sm mt-3">{notice}</p>}
+
+          {visibleSaved.length > 0 && (
+            <div className="mt-4">
+              <p className="text-gray-400 text-xs uppercase tracking-wider mb-2">Go-to meals</p>
+              <div className="space-y-2">
+                {visibleSaved.map(({ id, name, calories, protein, carbs, fat }) => (
+                  <div key={id} className="flex items-stretch gap-1 bg-gray-700/60 rounded-lg">
+                    <button
+                      onClick={() => log({ name, calories, protein, carbs, fat })}
+                      className="flex-1 min-w-0 text-left flex items-center justify-between gap-3 hover:bg-gray-700 rounded-lg px-3 py-2.5"
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-semibold truncate">{name}</span>
+                        <span className="block text-gray-400 text-sm">
+                          {Math.round(calories)} cal · {Math.round(protein)}g protein
+                        </span>
+                      </span>
+                      <Plus size={18} className="shrink-0 text-red-400" />
+                    </button>
+                    <button
+                      onClick={() => onDeleteSaved(id)}
+                      aria-label={`Remove ${name} from go-to meals`}
+                      className="px-2.5 text-gray-500 hover:text-red-400"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {localMatches.length > 0 && (
             <div className="mt-4">

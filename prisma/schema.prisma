@@ -34,6 +34,7 @@ model User {
 
   workoutDays   WorkoutDay[]
   foodEntries   FoodEntry[]
+  savedMeals    SavedMeal[]
   weightEntries WeightEntry[]
   cardioEntries CardioEntry[]
   profile       Profile?
@@ -118,9 +119,24 @@ model FoodEntry {
   protein  Float
   carbs    Float
   fat      Float
+  meal     String?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SavedMeal {
+  id       String @id @default(cuid())
+  name     String
+  calories Float
+  protein  Float
+  carbs    Float
+  fat      Float
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model CardioEntry {

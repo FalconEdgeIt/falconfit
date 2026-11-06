@@ -8,9 +8,9 @@ const DAY_LABELS = ["M", "", "W", "", "F", "", "S"];
 
 function dayTone(d: ActivityDay) {
   if (d.future) return "bg-transparent";
-  if (d.lifted && d.cardio) return "bg-red-400";
-  if (d.lifted) return "bg-red-600";
-  if (d.cardio) return "bg-amber-500";
+  if (d.lifted && d.cardio) return "bg-red-600";
+  if (d.lifted) return "bg-blue-500";
+  if (d.cardio) return "bg-green-500";
   return "bg-gray-700/60";
 }
 
@@ -181,13 +181,13 @@ export function TrainingRecord({
 
       <div className="flex items-center gap-4 mt-3 text-[11px] text-gray-400">
         <span className="flex items-center gap-1.5">
-          <i className="w-2.5 h-2.5 rounded-sm bg-red-600" /> Lifted
+          <i className="w-2.5 h-2.5 rounded-sm bg-blue-500" /> Lifted
         </span>
         <span className="flex items-center gap-1.5">
-          <i className="w-2.5 h-2.5 rounded-sm bg-amber-500" /> Cardio
+          <i className="w-2.5 h-2.5 rounded-sm bg-green-500" /> Cardio
         </span>
         <span className="flex items-center gap-1.5">
-          <i className="w-2.5 h-2.5 rounded-sm bg-red-400" /> Both
+          <i className="w-2.5 h-2.5 rounded-sm bg-red-600" /> Both
         </span>
       </div>
     </section>

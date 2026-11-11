@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navigation from "../../components/Navigation";
+import AdminWaitlist from "../../components/AdminWaitlist";
 
 type Role = "ADMIN" | "TRAINER" | "MEMBER";
 
@@ -455,6 +456,8 @@ export default function AdminPage() {
             )}
           </div>
         </div>
+
+        <AdminWaitlist />
       </div>
     </main>
   );

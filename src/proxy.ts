@@ -2,12 +2,21 @@ import { NextResponse, type NextRequest } from "next/server";
 import { verifySessionToken, SESSION_COOKIE } from "./lib/auth";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password"];
+// Open to everyone, signed in or not
+const OPEN_PATHS = ["/coaches"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? verifySessionToken(token) : null;
   const isPublic = PUBLIC_PATHS.includes(pathname);
+
+  if (OPEN_PATHS.includes(pathname)) return NextResponse.next();
+
+  // Visitors who aren't signed in see the coaches landing page at the front door
+  if (!session && pathname === "/") {
+    return NextResponse.rewrite(new URL("/coaches", request.url));
+  }
 
   if (!session && !isPublic) {
     const loginUrl = new URL("/login", request.url);

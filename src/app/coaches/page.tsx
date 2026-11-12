@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ClipboardCheck, Droplets, Medal, PlayCircle, ScanBarcode, Send, Trophy } from "lucide-react";
+import { ClipboardCheck, Droplets, Medal, ScanBarcode, Send, Trophy } from "lucide-react";
 import WaitlistForm from "../../components/WaitlistForm";
 
 export const metadata: Metadata = {
@@ -83,6 +83,19 @@ export default function CoachesPage() {
           See it in action
         </h2>
         <div className="bg-gray-800/60 border border-gray-700 rounded-2xl p-5 sm:p-8">
+          {/* youtube-nocookie keeps YouTube from setting tracking cookies until someone presses play */}
+          <div className="aspect-video rounded-xl overflow-hidden border border-gray-700 bg-gray-950 mb-6 sm:mb-8">
+            <iframe
+              src="https://www.youtube-nocookie.com/embed/Ir0vyZy88Dg?rel=0"
+              title="FalconFit for Coaches: 60-second demo"
+              loading="lazy"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+              className="w-full h-full"
+            />
+          </div>
+
           {/* Swipeable on phones, side by side on wider screens */}
           <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-5 px-5 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible">
             {SCREENS.map((s) => (
@@ -94,10 +107,6 @@ export default function CoachesPage() {
               />
             ))}
           </div>
-          <p className="flex items-center justify-center gap-2 text-gray-400 text-sm mt-5">
-            <PlayCircle size={18} aria-hidden="true" />
-            A 60-second demo video is coming soon.
-          </p>
         </div>
       </section>
 
